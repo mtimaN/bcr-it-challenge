@@ -24,7 +24,7 @@ const App = () => {
         <NavBar theme={theme} setTheme={setTheme} />
         <Routes>
           <Route path="/" element={<h1>Welcome Home</h1>} />
-          <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme} />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </Router>
     </div>

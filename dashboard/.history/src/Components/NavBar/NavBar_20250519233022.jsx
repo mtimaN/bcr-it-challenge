@@ -5,6 +5,8 @@ import sun from '../../assets/dayLogo.png'
 import moon from '../../assets/nightLogo.png'
 import magGlassDark from '../../assets/magGlassD.png'
 import magGlassLight from '../../assets/magGlassL.png'
+import profileIconDark from '../../assets/profileIconD.png'
+import profileIconLight from '../../assets/profileIconL.png'
 
 /* for navigation */
 import { NavLink, Link } from 'react-router-dom';

@@ -20,13 +20,7 @@ const App = () => {
 
   return (
     <div className={`container ${theme}`}>
-      <Router>
-        <NavBar theme={theme} setTheme={setTheme} />
-        <Routes>
-          <Route path="/" element={<h1>Welcome Home</h1>} />
-          <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme} />} />
-        </Routes>
-      </Router>
+      <NavBar theme={theme} setTheme={setTheme}/>
     </div>
   )
 }

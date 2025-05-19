@@ -5,6 +5,8 @@ import sun from '../../assets/dayLogo.png'
 import moon from '../../assets/nightLogo.png'
 import magGlassDark from '../../assets/magGlassD.png'
 import magGlassLight from '../../assets/magGlassL.png'
+import profileIconDark from '../../assets/profileIconD.png'
+import profileIconLight from '../../assets/profileIconL.png'
 
 /* for navigation */
 import { NavLink, Link } from 'react-router-dom';
@@ -24,7 +26,7 @@ const NavBar = ({theme, setTheme}) => {
             <li><NavLink to="/" className={({ isActive }) => isActive ? 'active-link' : ''}>Home</NavLink></li>
             <li>Transactions</li>
             <li>Personalized Advice</li>
-            <li><NavLink to="/profile" className={({ isActive }) => isActive ? 'active-link' : ''}>User Profile</NavLink></li>
+            <li><Link to="/profile">User Profile</Link></li>
         </ul>
 
         <div className='search-box'>

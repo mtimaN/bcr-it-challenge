@@ -82,17 +82,3 @@ ul li{
 .dark .search-box input::placeholder{
     color: #222;
 }
-
-/* to reset link aspect */
-ul li a {
-    text-decoration: none;
-    color: inherit;
-    padding-bottom: 4px;
-    border-bottom: 2px solid transparent;
-}
-
-/* underline that marks which section is visited */
-ul li a.active-link {
-    border-bottom: 2px solid #000;
-    font-weight: bold;
-}
