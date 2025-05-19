@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  cassandra:
+    image: cassandra:latest
+    container_name: cassandraDB  # container name
+    ports:
+      - "9042:9042"
+    environment:
+      - CASSANDRA_AUTHENTICATOR=PasswordAuthenticator
+      - CASSANDRA_AUTHORIZER=CassandraAuthorizer
+      - CASSANDRA_START_RPC=true
+      - CASSANDRA_CLUSTER_NAME=cassandraCluster  # cluster name
+      - CASSANDRA_PASSWORD_SEEDER=true
+      - CASSANDRA_SEEDS=cassandra
+      - CASSANDRA_USER=admin  # cassandra admin username
+      - CASSANDRA_PASSWORD=CPass0319  # cassandra admin password
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+      - ./internal/schema.cql:/docker-entrypoint-initdb.d/schema.cql
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "cqlsh", "-u", "admin", "-p", "CPass0319", "-e", "describe keyspaces"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    container_name: redisDB  # container name
+    command: redis-server --requirepass RPass0319  # redis password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "RPass0319", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  cassandra_data:
+  redis_data:
