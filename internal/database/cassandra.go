@@ -89,10 +89,14 @@ func (c *CassandraClient) AddUser(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (c *CassandraClient) UpdateUser(ctx context.Context, user *User) error {
-	_, err := c.GetUser(ctx, user.Username)
+func (c *CassandraClient) UpdateUser(ctx context.Context, user *User, oldPassword string) error {
+	old, err := c.GetUser(ctx, user.Username)
 	if err != nil {
 		return fmt.Errorf("update user: %w", err)
+	}
+
+	if old.Password != oldPassword {
+		return errors.New("update user: old password does not match")
 	}
 
 	if err := c.session.Query(
@@ -104,10 +108,19 @@ func (c *CassandraClient) UpdateUser(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (c *CassandraClient) DeleteUser(ctx context.Context, username string) error {
+func (c *CassandraClient) DeleteUser(ctx context.Context, user *User) error {
+	got, err := c.GetUser(ctx, user.Username)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+
+	if got.Password != user.Password {
+		return errors.New("delete user: old password does not match")
+	}
+
 	if err := c.session.Query(
 		"DELETE FROM users WHERE username = ?",
-		username).WithContext(ctx).Exec(); err != nil {
+		user.Username).WithContext(ctx).Exec(); err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
 

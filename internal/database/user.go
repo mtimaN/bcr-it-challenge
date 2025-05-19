@@ -7,10 +7,10 @@ import (
 
 // User represents a user in the system
 type User struct {
-	Username string
-	Password string
-	Email    string
-	Category int
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+	Category int    `json:"category"`
 }
 
 func UserID(username string) (gocql.UUID, error) {

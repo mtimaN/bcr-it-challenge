@@ -49,7 +49,7 @@ func testCassandraAddGetUpdateDelete(t *testing.T, ctx context.Context) {
 	// Update user
 	user.Email = "newEmail"
 	user.Category = 1
-	if err := client.UpdateUser(ctx, user); err != nil {
+	if err := client.UpdateUser(ctx, user, user.Password); err != nil {
 		t.Fatalf("update user failed: %v", err)
 	}
 
@@ -69,12 +69,12 @@ func testCassandraAddGetUpdateDelete(t *testing.T, ctx context.Context) {
 	// Invalid update (non-existent user)
 	nonExistentUser := db.NewUser("ghost", "password", "email")
 	nonExistentUser.Category = 2
-	if err := client.UpdateUser(ctx, nonExistentUser); err == nil {
+	if err := client.UpdateUser(ctx, nonExistentUser, "password"); err == nil {
 		t.Fatal("expected error on update non-existent user, got none")
 	}
 
 	// Delete user
-	if err := client.DeleteUser(ctx, user.Username); err != nil {
+	if err := client.DeleteUser(ctx, user); err != nil {
 		t.Fatalf("delete user failed: %v", err)
 	}
 
