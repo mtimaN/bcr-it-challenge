@@ -157,10 +157,10 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/get/user", server.handleGetUser)
-	mux.HandleFunc("/add/user", server.handleAddUser)
-	mux.HandleFunc("/update/user", server.handleUpdateUser)
-	mux.HandleFunc("/delete/user", server.handleDeleteUser)
+	mux.HandleFunc("/v1/get", server.handleGetUser)
+	mux.HandleFunc("/v1/add", server.handleAddUser)
+	mux.HandleFunc("/v1/update", server.handleUpdateUser)
+	mux.HandleFunc("/v1/delete", server.handleDeleteUser)
 
 	port := ":8080"
 	fmt.Printf("Server starting on port %s\n", port)

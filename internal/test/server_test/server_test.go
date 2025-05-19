@@ -55,7 +55,7 @@ func TestAPI(t *testing.T) {
 
 	// --- Add User
 	t.Run("AddUser", func(t *testing.T) {
-		resp := makeRequest(t, "/add/user", TestPayload{User: user})
+		resp := makeRequest(t, "/v1/add", TestPayload{User: user})
 		body := parseBody(t, resp)
 		if resp.StatusCode != http.StatusCreated {
 			t.Fatalf("add user failed: %d - %s", resp.StatusCode, body)
@@ -64,7 +64,7 @@ func TestAPI(t *testing.T) {
 
 	// --- Get User
 	t.Run("GetUser", func(t *testing.T) {
-		resp := makeRequest(t, "/get/user", TestPayload{User: user})
+		resp := makeRequest(t, "/v1/get", TestPayload{User: user})
 		body := parseBody(t, resp)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("get user failed: %d - %s", resp.StatusCode, body)
@@ -78,7 +78,7 @@ func TestAPI(t *testing.T) {
 		updated.Password = "newpass"
 		updated.Category = 2
 
-		resp := makeRequest(t, "/update/user", TestPayload{
+		resp := makeRequest(t, "/v1/update", TestPayload{
 			User:        updated,
 			OldPassword: user.Password,
 		})
@@ -93,7 +93,7 @@ func TestAPI(t *testing.T) {
 
 	// --- Delete User
 	t.Run("DeleteUser", func(t *testing.T) {
-		resp := makeRequest(t, "/delete/user", TestPayload{User: user})
+		resp := makeRequest(t, "/v1/delete", TestPayload{User: user})
 		body := parseBody(t, resp)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("delete user failed: %d - %s", resp.StatusCode, body)
@@ -102,7 +102,7 @@ func TestAPI(t *testing.T) {
 
 	// --- Get Deleted User
 	t.Run("GetDeletedUser", func(t *testing.T) {
-		resp := makeRequest(t, "/get/user", TestPayload{User: user})
+		resp := makeRequest(t, "/v1/get", TestPayload{User: user})
 		body := parseBody(t, resp)
 		if resp.StatusCode == http.StatusOK {
 			t.Fatalf("expected failure for deleted user, got 200 - %s", body)
