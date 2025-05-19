@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -79,7 +80,24 @@ func (c *CassandraClient) Health(ctx context.Context) error {
 	return nil
 }
 
+func validUser(user *User) error {
+	_, err := mail.ParseAddress(user.Email)
+	if err != nil {
+		return err
+	}
+
+	if len(user.Username) == 0 || len(user.Password) == 0 {
+		return errors.New("required fields are empty")
+	}
+
+	return nil
+}
+
 func (c *CassandraClient) AddUser(ctx context.Context, user *User) error {
+	if err := validUser(user); err != nil {
+		return fmt.Errorf("user creation: %w", err)
+	}
+
 	if err := c.session.Query(
 		"INSERT INTO users (username, password, email, category) VALUES (?, ?, ?, ?)",
 		user.Username, user.Password, user.Email, user.Category).WithContext(ctx).Exec(); err != nil {

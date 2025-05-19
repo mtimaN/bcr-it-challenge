@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"db"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -37,6 +39,32 @@ func NewServer() (*Server, error) {
 	}, nil
 }
 
+func (s *Server) getUser(ctx context.Context, user *db.User) (*db.User, error) {
+	got, err := s.redis.GetUser(ctx, user.Username)
+	if err != nil {
+		got, err = s.cassandra.GetUser(ctx, user.Username)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("server get: %w", err)
+	}
+
+	s.redis.AddUser(ctx, got)
+	return got, nil
+}
+
+func (s *Server) addUser(ctx context.Context, user *db.User) error {
+	_, err := s.getUser(ctx, user)
+	if err == nil {
+		return errors.New("server post: user already exists")
+	}
+
+	s.cassandra.AddUser(ctx, user)
+	s.redis.AddUser(ctx, user)
+
+	return nil
+}
+
 func parseJSONPayload(w http.ResponseWriter, r *http.Request) (*Payload, error) {
 	var payload Payload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -65,7 +93,7 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := payloadToUser(payload)
-	got, err := s.cassandra.GetUser(r.Context(), user.Username)
+	got, err := s.getUser(r.Context(), user)
 
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -92,14 +120,7 @@ func (s *Server) handleAddUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := payloadToUser(payload)
-
-	_, err = s.cassandra.GetUser(r.Context(), user.Username)
-	if err == nil {
-		http.Error(w, "Username already exists", http.StatusBadRequest)
-		return
-	}
-
-	if err := s.cassandra.AddUser(r.Context(), user); err != nil {
+	if err := s.addUser(r.Context(), user); err != nil {
 		http.Error(w, "Failed to add user", http.StatusInternalServerError)
 		return
 	}
@@ -126,6 +147,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.redis.AddUser(r.Context(), user)
 	w.Write([]byte("User updated successfully"))
 }
 
@@ -142,6 +164,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	user := payloadToUser(payload)
 
+	s.redis.DeleteUser(r.Context(), user)
 	if err := s.cassandra.DeleteUser(r.Context(), user); err != nil {
 		http.Error(w, "Failed to delete user", http.StatusInternalServerError)
 		return

@@ -45,6 +45,52 @@ func parseBody(t *testing.T, resp *http.Response) string {
 	return string(data)
 }
 
+func TestInvalidRequests(t *testing.T) {
+	// Invalid JSON (malformed syntax)
+	t.Run("InvalidJSON", func(t *testing.T) {
+		body := []byte(`{"user": { "username": "test", "email": "bad@example.com", "password": "1234", }}`) // extra comma
+		resp, err := http.Post(baseURL+"/v1/add", "application/json", bytes.NewReader(body))
+		if err != nil {
+			t.Fatalf("POST request failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			t.Fatalf("expected failure on malformed JSON, got %d", resp.StatusCode)
+		}
+	})
+
+	// Missing required fields
+	t.Run("MissingFields", func(t *testing.T) {
+		user := TestUser{
+			Username: "", // required field is empty
+			Password: "testpass",
+			Email:    "email@example.com",
+			Category: 1,
+		}
+		resp := makeRequest(t, "/v1/add", TestPayload{User: user})
+		body := parseBody(t, resp)
+		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+			t.Fatalf("expected validation error, got %d - %s", resp.StatusCode, body)
+		}
+	})
+
+	// Invalid email format
+	t.Run("InvalidEmail", func(t *testing.T) {
+		user := TestUser{
+			Username: "bademail",
+			Password: "pass1234",
+			Email:    "not-an-email",
+			Category: 1,
+		}
+		resp := makeRequest(t, "/v1/add", TestPayload{User: user})
+		body := parseBody(t, resp)
+		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+			t.Fatalf("expected email validation failure, got %d - %s", resp.StatusCode, body)
+		}
+	})
+}
+
 func TestAPI(t *testing.T) {
 	user := TestUser{
 		Username: "apitest",

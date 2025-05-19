@@ -9,7 +9,7 @@ import (
 )
 
 func createTestUser() *db.User {
-	user := db.NewUser("test", "testPw", "test232")
+	user := db.NewUser("test", "testPw", "test232@gmail.com")
 	user.Category = 0
 	return user
 }
@@ -110,6 +110,16 @@ func testRedisBasicCRUD(t *testing.T, ctx context.Context) {
 		t.Fatalf("get user failed: %v", err)
 	}
 	verifyUsersEqual(t, got, user)
+
+	err = client.DeleteUser(ctx, user)
+	if err != nil {
+		t.Fatalf("delete user failed: %v", err)
+	}
+
+	_, err = client.GetUser(ctx, user.Username)
+	if err == nil {
+		t.Fatalf("delete user failed: user still exists")
+	}
 }
 
 func testRedisExpiration(t *testing.T, ctx context.Context) {

@@ -102,7 +102,17 @@ func (c *RedisClient) AddUser(ctx context.Context, user *User) error {
 	if err != nil {
 		return fmt.Errorf("redis add: %w", err)
 	}
-	
+
+	return nil
+}
+
+func (c *RedisClient) DeleteUser(ctx context.Context, user *User) error {
+	key := createKey(user.Username)
+	err := c.client.Del(ctx, key).Err()
+	if err != nil {
+		return fmt.Errorf("redis delete: %w", err)
+	}
+
 	return nil
 }
 
