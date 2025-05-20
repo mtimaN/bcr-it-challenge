@@ -21,10 +21,11 @@ const NavBar = ({theme, setTheme}) => {
     <div className='navbar'>
         <img src={bcrLogo} alt="" className='logo'/>
         <ul>
-            <li><NavLink to="/" className={({ isActive }) => isActive ? 'active-link' : ''}>Home</NavLink></li>
-            <li>Transactions</li>
-            <li>Personalized Advice</li>
-            <li><NavLink to="/profile" className={({ isActive }) => isActive ? 'active-link' : ''}>User Profile</NavLink></li>
+            <li><NavLink to="/home" className={({ isActive }) => isActive ? 'active-link' : ''}>Home</NavLink></li>
+            <li><NavLink to="/discover" className={({ isActive }) => isActive ? 'active-link' : ''}>Discover</NavLink></li>
+            <li><NavLink to="/products" className={({ isActive }) => isActive ? 'active-link' : ''}>Products</NavLink></li>
+            <li><NavLink to="/profile" className={({ isActive }) => isActive ? 'active-link' : ''}>Profile</NavLink></li>
+            <li><NavLink to="/settings" className={({ isActive }) => isActive ? 'active-link' : ''}>Settings</NavLink></li>
         </ul>
 
         <div className='search-box'>
