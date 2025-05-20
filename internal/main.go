@@ -13,8 +13,9 @@ import (
 )
 
 type Server struct {
-	cassandra *db.CassandraRepo
-	redis     *db.RedisRepo
+	cassandra  *db.CassandraRepo
+	redis      *db.RedisRepo
+	jwtmanager *JWTManager
 }
 
 func NewServer() (*Server, error) {
@@ -45,24 +46,33 @@ func NewServer() (*Server, error) {
 		return nil, fmt.Errorf("failed to initialize Redis: %w", err)
 	}
 
+	jwtManager := NewJWTManager()
+
 	return &Server{
-		cassandra: cassandra,
-		redis:     redis,
+		cassandra:  cassandra,
+		redis:      redis,
+		jwtmanager: jwtManager,
 	}, nil
 }
 
-func (s *Server) login(ctx context.Context, cred *db.Credentials) (*db.User, error) {
+func (s *Server) login(ctx context.Context, cred *db.Credentials) (string, error) {
 	got, err := s.redis.Get(ctx, cred)
 	if err != nil && !strings.Contains(err.Error(), "incorrect password") {
 		got, err = s.cassandra.GetUser(ctx, cred)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("server get: %w", err)
+		return "", fmt.Errorf("server get: %w", err)
+	}
+
+	jwt, err := s.jwtmanager.CreateToken(got.Username)
+
+	if err != nil {
+		return "", fmt.Errorf("server jwt: %w", err)
 	}
 
 	s.redis.Add(ctx, got)
-	return got, nil
+	return jwt, nil
 }
 
 func (s *Server) register(ctx context.Context, user *db.User) error {
@@ -151,13 +161,16 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = s.login(r.Context(), cred)
+	token, err := s.login(r.Context(), cred)
 	if err != nil {
 		http.Error(w, "Invalid user data", http.StatusNotFound)
 		return
 	}
 
-	w.Write([]byte("token"))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := map[string]string{"token": token}
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -223,6 +236,44 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("User updated successfully"))
 }
 
+func (s *Server) handleGetAdsCategory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		http.Error(w, "Missing or invalid Authorization header", http.StatusUnauthorized)
+		return
+	}
+
+	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+
+	claims, err := s.jwtmanager.ValidateToken(tokenStr)
+	if err != nil {
+		http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
+		return
+	}
+
+	// 3. Use claims info (e.g., claims.Username)
+	log.Printf("Authenticated user: %s", claims.Username)
+
+	user, err := s.cassandra.GetUser(r.Context(), &db.Credentials{Username: claims.Username, Password: ""})
+
+	if err != nil {
+		http.Error(w, "Failed to get user", http.StatusInternalServerError)
+		return
+	}
+
+	category := user.Category
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := map[string]int{"category": category}
+	json.NewEncoder(w).Encode(response)
+	w.Write([]byte("User category retrieved successfully"))
+}
+
 func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
@@ -276,6 +327,7 @@ func main() {
 	mux.HandleFunc("/v1/update", server.handleUpdateUser)
 	mux.HandleFunc("/v1/delete", server.handleDeleteUser)
 	mux.HandleFunc("/v1/stats", server.handleStats)
+	mux.HandleFunc("/v1/get_ads", server.handleGetAdsCategory)
 
 	port := ":8443"
 	fmt.Printf("Server starting on port %s\n", port)
