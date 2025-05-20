@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 )
 
 type Server struct {
@@ -40,7 +41,7 @@ func NewServer() (*Server, error) {
 }
 
 func (s *Server) getUser(ctx context.Context, user *db.User) (*db.User, error) {
-	got, err := s.redis.GetUser(ctx, user.Username)
+	got, err := s.redis.Get(ctx, user.Username)
 	if err != nil {
 		got, err = s.cassandra.GetUser(ctx, user.Username)
 	}
@@ -49,7 +50,7 @@ func (s *Server) getUser(ctx context.Context, user *db.User) (*db.User, error) {
 		return nil, fmt.Errorf("server get: %w", err)
 	}
 
-	s.redis.AddUser(ctx, got)
+	s.redis.Add(ctx, got)
 	return got, nil
 }
 
@@ -59,9 +60,12 @@ func (s *Server) addUser(ctx context.Context, user *db.User) error {
 		return errors.New("server post: user already exists")
 	}
 
-	s.cassandra.AddUser(ctx, user)
-	s.redis.AddUser(ctx, user)
+	err = s.cassandra.AddUser(ctx, user)
+	if err != nil {
+		return fmt.Errorf("server post: %w", err)
+	}
 
+	s.redis.Add(ctx, user)
 	return nil
 }
 
@@ -147,7 +151,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.redis.AddUser(r.Context(), user)
+	s.redis.Add(r.Context(), user)
 	w.Write([]byte("User updated successfully"))
 }
 
@@ -164,12 +168,12 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	user := payloadToUser(payload)
 
-	s.redis.DeleteUser(r.Context(), user)
 	if err := s.cassandra.DeleteUser(r.Context(), user); err != nil {
 		http.Error(w, "Failed to delete user", http.StatusInternalServerError)
 		return
 	}
 
+	s.redis.Delete(r.Context(), user.Username)
 	w.Write([]byte("User deleted successfully"))
 }
 
@@ -185,9 +189,15 @@ func main() {
 	mux.HandleFunc("/v1/update", server.handleUpdateUser)
 	mux.HandleFunc("/v1/delete", server.handleDeleteUser)
 
-	port := ":8080"
+	port := ":8443"
 	fmt.Printf("Server starting on port %s\n", port)
-	if err := http.ListenAndServe(port, mux); err != nil {
-		log.Fatalf("Server failed: %v", err)
+
+	certDir := os.Getenv("tls_cert_dir")
+	if certDir == "" {
+		certDir = "../certs"
+	}
+
+	if err := http.ListenAndServeTLS(port, certDir+"/server.crt", certDir+"/server.key", mux); err != nil {
+		log.Fatalf("server listen: %v", err)
 	}
 }

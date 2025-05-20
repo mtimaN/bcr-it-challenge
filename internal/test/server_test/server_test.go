@@ -2,13 +2,16 @@ package server_test
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"testing"
 )
 
-const baseURL = "http://localhost:8080"
+const baseURL = "https://localhost:8443"
 
 type TestUser struct {
 	Username string `json:"username"`
@@ -22,13 +25,38 @@ type TestPayload struct {
 	OldPassword string   `json:"old_password,omitempty"`
 }
 
+var secureClient = func() *http.Client {
+	certDir := os.Getenv("tls_cert_dir")
+	if certDir == "" {
+		certDir = "../../../certs"
+	}
+
+	cert, err := os.ReadFile(certDir + "/server.crt")
+	if err != nil {
+		panic(err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	if ok := caCertPool.AppendCertsFromPEM(cert); !ok {
+		panic(err)
+	}
+
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: caCertPool,
+			},
+		},
+	}
+}()
+
 func makeRequest(t *testing.T, endpoint string, payload TestPayload) *http.Response {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("failed to marshal payload: %v", err)
 	}
 
-	resp, err := http.Post(baseURL+endpoint, "application/json", bytes.NewReader(body))
+	resp, err := secureClient.Post(baseURL+endpoint, "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("POST request failed: %v", err)
 	}
@@ -49,7 +77,7 @@ func TestInvalidRequests(t *testing.T) {
 	// Invalid JSON (malformed syntax)
 	t.Run("InvalidJSON", func(t *testing.T) {
 		body := []byte(`{"user": { "username": "test", "email": "bad@example.com", "password": "1234", }}`) // extra comma
-		resp, err := http.Post(baseURL+"/v1/add", "application/json", bytes.NewReader(body))
+		resp, err := secureClient.Post(baseURL+"/v1/add", "application/json", bytes.NewReader(body))
 		if err != nil {
 			t.Fatalf("POST request failed: %v", err)
 		}
