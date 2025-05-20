@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -14,9 +15,17 @@ import (
 
 // RedisConfig holds configuration for Redis connection
 type RedisConfig struct {
-	*redis.Options
-
-	Expiration time.Duration
+	Addr         string
+	Password     string
+	DB           int
+	PoolSize     int
+	MinIdleConns int
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	MaxRetries   int
+	Expiration   time.Duration
+	KeyPrefix    string // Add namespace for keys
 }
 
 // RedisClient is a wrapper around the Redis client
@@ -25,29 +34,46 @@ type RedisClient struct {
 	config *RedisConfig
 }
 
+// NewRedisConfig creates a new Redis configuration with secure defaults
 func NewRedisConfig(password string) *RedisConfig {
 	return &RedisConfig{
-		Options: &redis.Options{
-			Addr:        "localhost:6379",
-			Password:    password,
-			DialTimeout: 5 * time.Second,
-		},
-		Expiration: 24 * time.Hour,
+		Addr:         "localhost:6379",
+		Password:     password,
+		DB:           0,
+		PoolSize:     10,
+		MinIdleConns: 2,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		MaxRetries:   3,
+		Expiration:   24 * time.Hour,
+		KeyPrefix:    "cache:user:", // Namespace for cache keys
 	}
 }
 
+// NewRedisClient creates a new Redis client with improved configuration
 func NewRedisClient(config *RedisConfig) (*RedisClient, error) {
+	if config == nil {
+		return nil, errors.New("redis config cannot be nil")
+	}
+
 	client := redis.NewClient(&redis.Options{
-		Addr:     config.Addr,
-		Password: config.Password,
-		DB:       config.DB,
+		Addr:         config.Addr,
+		Password:     config.Password,
+		DB:           config.DB,
+		PoolSize:     config.PoolSize,
+		MinIdleConns: config.MinIdleConns,
+		DialTimeout:  config.DialTimeout,
+		ReadTimeout:  config.ReadTimeout,
+		WriteTimeout: config.WriteTimeout,
+		MaxRetries:   config.MaxRetries,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.DialTimeout)
 	defer cancel()
 
 	if _, err := client.Ping(ctx).Result(); err != nil {
-		return nil, fmt.Errorf("connect to redis: %w", err)
+		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
 
 	return &RedisClient{
@@ -56,66 +82,181 @@ func NewRedisClient(config *RedisConfig) (*RedisClient, error) {
 	}, nil
 }
 
+// Health checks the Redis connection health
 func (c *RedisClient) Health(ctx context.Context) error {
 	if c.client == nil {
 		return errors.New("redis client is nil")
 	}
 
 	if _, err := c.client.Ping(ctx).Result(); err != nil {
-		return fmt.Errorf("redis health: %w", err)
+		return fmt.Errorf("redis health check failed: %w", err)
 	}
 
 	return nil
 }
 
-func createKey(username string) string {
+// createKey creates a secure, namespaced key from username
+func (c *RedisClient) createKey(username string) (string, error) {
+	// Input validation
+	if username == "" {
+		return "", errors.New("username cannot be empty")
+	}
+
+	// Normalize username (trim spaces, convert to lowercase)
+	username = strings.ToLower(strings.TrimSpace(username))
+
+	// Additional validation - ensure username doesn't contain control characters
+	if strings.ContainsAny(username, "\r\n\t\000") {
+		return "", errors.New("username contains invalid characters")
+	}
+
+	// Create hash
 	h := sha256.New()
 	h.Write([]byte(username))
-	return hex.EncodeToString(h.Sum(nil))
+	hash := hex.EncodeToString(h.Sum(nil))
+
+	// Return namespaced key
+	return c.config.KeyPrefix + hash, nil
 }
 
-func (c *RedisClient) GetUser(ctx context.Context, username string) (*User, error) {
-	key := createKey(username)
+// Get retrieves a user from cache
+func (c *RedisClient) Get(ctx context.Context, username string) (*User, error) {
+	if c.client == nil {
+		return nil, errors.New("redis client is not initialized")
+	}
+
+	key, err := c.createKey(username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cache key: %w", err)
+	}
 
 	val, err := c.client.Get(ctx, key).Result()
 	if err != nil {
-		return nil, fmt.Errorf("redis get: %w", err)
+		if errors.Is(err, redis.Nil) {
+			return nil, fmt.Errorf("user not found in cache")
+		}
+		return nil, fmt.Errorf("failed to get from redis: %w", err)
 	}
 
 	var user User
-	err = json.Unmarshal([]byte(val), &user)
-	if err != nil {
-		return nil, fmt.Errorf("redis get: %w", err)
+	if err := json.Unmarshal([]byte(val), &user); err != nil {
+		// If we can't unmarshal, delete the corrupted entry
+		_ = c.client.Del(ctx, key)
+		return nil, fmt.Errorf("failed to unmarshal cached data: %w", err)
 	}
 
 	return &user, nil
 }
 
-func (c *RedisClient) AddUser(ctx context.Context, user *User) error {
-	key := createKey(user.Username)
+// Add stores a user in cache
+func (c *RedisClient) Add(ctx context.Context, user *User) error {
+	if c.client == nil {
+		return errors.New("redis client is not initialized")
+	}
+
+	if user == nil {
+		return errors.New("user cannot be nil")
+	}
+
+	key, err := c.createKey(user.Username)
+	if err != nil {
+		return fmt.Errorf("failed to create cache key: %w", err)
+	}
+
 	val, err := json.Marshal(user)
 	if err != nil {
-		return fmt.Errorf("redis add: %w", err)
+		return fmt.Errorf("failed to marshal user data: %w", err)
 	}
 
-	err = c.client.Set(ctx, key, val, c.config.Expiration).Err()
-	if err != nil {
-		return fmt.Errorf("redis add: %w", err)
-	}
-
-	return nil
-}
-
-func (c *RedisClient) DeleteUser(ctx context.Context, user *User) error {
-	key := createKey(user.Username)
-	err := c.client.Del(ctx, key).Err()
-	if err != nil {
-		return fmt.Errorf("redis delete: %w", err)
+	if err := c.client.Set(ctx, key, val, c.config.Expiration).Err(); err != nil {
+		return fmt.Errorf("failed to set in redis: %w", err)
 	}
 
 	return nil
 }
 
+// Delete removes a user from cache
+func (c *RedisClient) Delete(ctx context.Context, username string) error {
+	if c.client == nil {
+		return errors.New("redis client is not initialized")
+	}
+
+	key, err := c.createKey(username)
+	if err != nil {
+		return fmt.Errorf("failed to create cache key: %w", err)
+	}
+
+	deleted, err := c.client.Del(ctx, key).Result()
+	if err != nil {
+		return fmt.Errorf("failed to delete from redis: %w", err)
+	}
+
+	if deleted == 0 {
+		return fmt.Errorf("user not found in cache")
+	}
+
+	return nil
+}
+
+// Exists checks if a user exists in cache without retrieving the full data
+func (c *RedisClient) Exists(ctx context.Context, username string) (bool, error) {
+	if c.client == nil {
+		return false, errors.New("redis client is not initialized")
+	}
+
+	key, err := c.createKey(username)
+	if err != nil {
+		return false, fmt.Errorf("failed to create cache key: %w", err)
+	}
+
+	exists, err := c.client.Exists(ctx, key).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check existence in redis: %w", err)
+	}
+
+	return exists > 0, nil
+}
+
+// UpdateExpiration extends the TTL of a cached user
+func (c *RedisClient) UpdateExpiration(ctx context.Context, username string, expiration time.Duration) error {
+	if c.client == nil {
+		return errors.New("redis client is not initialized")
+	}
+
+	key, err := c.createKey(username)
+	if err != nil {
+		return fmt.Errorf("failed to create cache key: %w", err)
+	}
+
+	if err := c.client.Expire(ctx, key, expiration).Err(); err != nil {
+		return fmt.Errorf("failed to update expiration: %w", err)
+	}
+
+	return nil
+}
+
+// Close gracefully closes the Redis connection
 func (c *RedisClient) Close() error {
-	return c.client.Close()
+	if c.client != nil {
+		return c.client.Close()
+	}
+	return nil
+}
+
+// Stats returns basic Redis statistics
+func (c *RedisClient) Stats(ctx context.Context) (map[string]interface{}, error) {
+	if c.client == nil {
+		return nil, errors.New("redis client is not initialized")
+	}
+
+	poolStats := c.client.PoolStats()
+
+	return map[string]interface{}{
+		"total_connections": poolStats.TotalConns,
+		"idle_connections":  poolStats.IdleConns,
+		"stale_connections": poolStats.StaleConns,
+		"hits":              poolStats.Hits,
+		"misses":            poolStats.Misses,
+		"timeouts":          poolStats.Timeouts,
+	}, nil
 }

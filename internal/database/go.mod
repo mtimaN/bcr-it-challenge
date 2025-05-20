@@ -5,7 +5,7 @@ go 1.23.9
 require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gocql/gocql v1.7.0
-	github.com/google/uuid v1.6.0
+	golang.org/x/crypto v0.38.0
 )
 
 require (

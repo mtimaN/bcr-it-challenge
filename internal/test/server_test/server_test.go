@@ -94,7 +94,7 @@ func TestInvalidRequests(t *testing.T) {
 func TestAPI(t *testing.T) {
 	user := TestUser{
 		Username: "apitest",
-		Password: "testpass",
+		Password: "testpass123",
 		Email:    "apitest@example.com",
 		Category: 1,
 	}
@@ -121,7 +121,7 @@ func TestAPI(t *testing.T) {
 	t.Run("UpdateUser", func(t *testing.T) {
 		updated := user
 		updated.Email = "updated@example.com"
-		updated.Password = "newpass"
+		updated.Password = "newpass123"
 		updated.Category = 2
 
 		resp := makeRequest(t, "/v1/update", TestPayload{
