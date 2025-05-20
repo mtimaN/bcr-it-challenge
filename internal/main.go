@@ -9,27 +9,38 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 type Server struct {
-	cassandra *db.CassandraClient
-	redis     *db.RedisClient
-}
-
-type Payload struct {
-	User        db.User `json:"user"`
-	OldPassword string  `json:"old_password"`
+	cassandra *db.CassandraRepo
+	redis     *db.RedisRepo
 }
 
 func NewServer() (*Server, error) {
-	cConfig := db.NewCassandraConfig("backend", "BPass0319", "cass_keyspace")
-	cassandra, err := db.NewCassandraClient(cConfig)
+	username := os.Getenv("cass_username")
+	password := os.Getenv("cass_password")
+	keyspace := os.Getenv("cass_keyspace")
+
+	if username == "" || password == "" || keyspace == "" {
+		username = "backend"
+		password = "BPass0319"
+		keyspace = "cass_keyspace"
+	}
+
+	cConfig := db.NewCassandraConfig(username, password, keyspace)
+	cassandra, err := db.NewCassandraRepo(cConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Cassandra: %w", err)
 	}
 
-	rConfig := db.NewRedisConfig("RPass0319")
-	redis, err := db.NewRedisClient(rConfig)
+	password = os.Getenv("redis_password")
+	if password == "" {
+		password = "RPass0319"
+	}
+
+	rConfig := db.NewRedisConfig(password)
+	redis, err := db.NewRedisRepo(rConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Redis: %w", err)
 	}
@@ -40,10 +51,10 @@ func NewServer() (*Server, error) {
 	}, nil
 }
 
-func (s *Server) getUser(ctx context.Context, user *db.User) (*db.User, error) {
-	got, err := s.redis.Get(ctx, user)
-	if err != nil {
-		got, err = s.cassandra.GetUser(ctx, user.Username)
+func (s *Server) login(ctx context.Context, cred *db.Credentials) (*db.User, error) {
+	got, err := s.redis.Get(ctx, cred)
+	if err != nil && !strings.Contains(err.Error(), "incorrect password") {
+		got, err = s.cassandra.GetUser(ctx, cred)
 	}
 
 	if err != nil {
@@ -54,10 +65,13 @@ func (s *Server) getUser(ctx context.Context, user *db.User) (*db.User, error) {
 	return got, nil
 }
 
-func (s *Server) addUser(ctx context.Context, user *db.User) error {
-	_, err := s.getUser(ctx, user)
-	if err == nil {
-		return errors.New("server post: user already exists")
+func (s *Server) register(ctx context.Context, user *db.User) error {
+	ok, err := s.cassandra.UsernameExists(ctx, user.Username)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return errors.New("username exists")
 	}
 
 	err = s.cassandra.AddUser(ctx, user)
@@ -69,62 +83,101 @@ func (s *Server) addUser(ctx context.Context, user *db.User) error {
 	return nil
 }
 
-func parseJSONPayload(w http.ResponseWriter, r *http.Request) (*Payload, error) {
+type Payload map[string]interface{}
+
+func parseJSON(w http.ResponseWriter, r *http.Request) (Payload, error) {
 	var payload Payload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return nil, err
 	}
-	return &payload, nil
+	return payload, nil
 }
 
-func payloadToUser(payload *Payload) *db.User {
-	user := db.NewUser(payload.User.Username, payload.User.Password, payload.User.Email)
-	user.Category = payload.User.Category
+func (p Payload) credentials() *db.Credentials {
+	username, ok := p["username"].(string)
+	if !ok {
+		return nil
+	}
 
-	return user
+	password, ok := p["password"].(string)
+	if !ok {
+		return nil
+	}
+
+	return &db.Credentials{
+		Username: username,
+		Password: password,
+	}
 }
 
-func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
+func (p Payload) user() *db.User {
+	email, ok := p["email"].(string)
+	if !ok {
+		email = ""
+	}
+
+	cred := p.credentials()
+	if cred == nil {
+		return nil
+	}
+
+	category, ok := p["category"].(int)
+	if !ok {
+		category = -1
+	}
+
+	return &db.User{
+		Credentials: cred,
+		Email:       email,
+		Category:    category,
+	}
+}
+
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	payload, err := parseJSONPayload(w, r)
+	payload, err := parseJSON(w, r)
 	if err != nil {
 		return
 	}
 
-	user := payloadToUser(payload)
-	got, err := s.getUser(r.Context(), user)
+	cred := payload.credentials()
+	if cred == nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 
+	_, err = s.login(r.Context(), cred)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+		http.Error(w, "Invalid user data", http.StatusNotFound)
 		return
 	}
 
-	if user.Password != got.Password {
-		http.Error(w, "Invalid password", http.StatusBadRequest)
-		return
-	}
-
-	json.NewEncoder(w).Encode(user)
+	w.Write([]byte("token"))
 }
 
-func (s *Server) handleAddUser(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	payload, err := parseJSONPayload(w, r)
+	payload, err := parseJSON(w, r)
 	if err != nil {
 		return
 	}
 
-	user := payloadToUser(payload)
-	if err := s.addUser(r.Context(), user); err != nil {
+	user := payload.user()
+	if user == nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.register(r.Context(), user); err != nil {
 		http.Error(w, "Failed to add user", http.StatusInternalServerError)
 		return
 	}
@@ -139,14 +192,29 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload, err := parseJSONPayload(w, r)
+	payload, err := parseJSON(w, r)
 	if err != nil {
 		return
 	}
 
-	user := payloadToUser(payload)
+	password, ok := payload["old_password"].(string)
+	if !ok {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 
-	if err := s.cassandra.UpdateUser(r.Context(), user, payload.OldPassword); err != nil {
+	user := payload.user()
+	if user == nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if user.Email == "" && user.Category == -1 && password == user.Password {
+		http.Error(w, "New password cannot be the same as the old one", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.cassandra.UpdateUser(r.Context(), user, password); err != nil {
 		http.Error(w, "Failed to update user", http.StatusInternalServerError)
 		return
 	}
@@ -161,19 +229,23 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload, err := parseJSONPayload(w, r)
+	payload, err := parseJSON(w, r)
 	if err != nil {
 		return
 	}
 
-	user := payloadToUser(payload)
+	username, ok := payload["username"].(string)
+	if !ok {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 
-	if err := s.cassandra.DeleteUser(r.Context(), user); err != nil {
+	if err := s.cassandra.DeleteUser(r.Context(), username); err != nil {
 		http.Error(w, "Failed to delete user", http.StatusInternalServerError)
 		return
 	}
 
-	s.redis.Delete(r.Context(), user.Username)
+	s.redis.Delete(r.Context(), username)
 	w.Write([]byte("User deleted successfully"))
 }
 
@@ -199,8 +271,8 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/get", server.handleGetUser)
-	mux.HandleFunc("/v1/add", server.handleAddUser)
+	mux.HandleFunc("/v1/login", server.handleLogin)
+	mux.HandleFunc("/v1/register", server.handleRegister)
 	mux.HandleFunc("/v1/update", server.handleUpdateUser)
 	mux.HandleFunc("/v1/delete", server.handleDeleteUser)
 	mux.HandleFunc("/v1/stats", server.handleStats)

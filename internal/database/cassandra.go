@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/mail"
-	"regexp"
 	"time"
-	"unicode/utf8"
 
 	"github.com/gocql/gocql"
 )
@@ -23,22 +20,13 @@ type CassandraConfig struct {
 	connectTimeout time.Duration
 }
 
-// CassandraClient is a wrapper around the Cassandra connection
-type CassandraClient struct {
+// CassandraRepo is a wrapper around the Cassandra connection
+type CassandraRepo struct {
 	session *gocql.Session
 	config  *CassandraConfig
 }
 
-const (
-	MinPasswordLength = 8
-	MaxPasswordLength = 128
-	MinUsernameLength = 3
-	MaxUsernameLength = 20
-	MaxEmailLength    = 254 // RFC 5321 limit
-	BcryptCost        = 12  // increase for better security
-)
-
-func NewCassandraConfig(username string, password string, keyspace string) *CassandraConfig {
+func NewCassandraConfig(username, password, keyspace string) *CassandraConfig {
 	hosts := []string{"localhost"}
 
 	return &CassandraConfig{
@@ -52,7 +40,7 @@ func NewCassandraConfig(username string, password string, keyspace string) *Cass
 	}
 }
 
-func NewCassandraClient(config *CassandraConfig) (*CassandraClient, error) {
+func NewCassandraRepo(config *CassandraConfig) (*CassandraRepo, error) {
 	cluster := gocql.NewCluster(config.hosts...)
 	cluster.Keyspace = config.keyspace
 	cluster.Consistency = gocql.Quorum
@@ -70,13 +58,13 @@ func NewCassandraClient(config *CassandraConfig) (*CassandraClient, error) {
 		return nil, fmt.Errorf("cassandra session: %w", err)
 	}
 
-	return &CassandraClient{
+	return &CassandraRepo{
 		session: session,
 		config:  config,
 	}, nil
 }
 
-func (c *CassandraClient) Health(ctx context.Context) error {
+func (c *CassandraRepo) Health(ctx context.Context) error {
 	if c.session == nil {
 		return errors.New("cassandra session is nil")
 	}
@@ -89,60 +77,43 @@ func (c *CassandraClient) Health(ctx context.Context) error {
 	return nil
 }
 
-func validUser(user *User) error {
-	// Email validation
-	if user.Email == "" {
-		return errors.New("email is required")
-	}
-	if len(user.Email) > MaxEmailLength {
-		return errors.New("email too long")
-	}
-	_, err := mail.ParseAddress(user.Email)
-	if err != nil {
-		return errors.New("invalid email format")
+func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, error) {
+	// Basic input validation for username
+	if err := ValidCredentials(cred.Username, cred.Password); err != nil {
+		return nil, fmt.Errorf("get: %w", err)
 	}
 
-	// Username validation
-	if user.Username == "" {
-		return errors.New("username is required")
-	}
-	if len(user.Username) < MinUsernameLength || len(user.Username) > MaxUsernameLength {
-		return fmt.Errorf("username must be %d-%d characters", MinUsernameLength, MaxUsernameLength)
+	user := &User{}
+	user.Credentials = &Credentials{}
+
+	if err := c.session.Query(
+		"SELECT username, password, email, category FROM users WHERE username = ? LIMIT 1",
+		cred.Username).WithContext(ctx).Scan(&user.Username, &user.Password, &user.Email, &user.Category); err != nil {
+		if err == gocql.ErrNotFound {
+			return nil, errors.New("user not found")
+		}
+		return nil, errors.New("database error")
 	}
 
-	// Allow alphanumeric, underscore, and hyphen
-	validUsername := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-	if !validUsername.MatchString(user.Username) {
-		return errors.New("username contains invalid characters")
+	if !CheckPasswordHash(cred.Password, user.Password) {
+		return nil, errors.New("invalid password")
 	}
 
-	// Password validation
-	if user.Password == "" {
-		return errors.New("password is required")
-	}
-	if len(user.Password) < MinPasswordLength {
-		return fmt.Errorf("password must be at least %d characters long", MinPasswordLength)
-	}
-	if len(user.Password) > MaxPasswordLength {
-		return errors.New("password too long")
-	}
-
-	// Check UTF-8 validity
-	if !utf8.ValidString(user.Username) || !utf8.ValidString(user.Email) {
-		return errors.New("invalid character encoding")
-	}
-
-	return nil
+	user.Password = cred.Password
+	return user, nil
 }
 
-func (c *CassandraClient) AddUser(ctx context.Context, user *User) error {
-	if err := validUser(user); err != nil {
+func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
+	if err := ValidUser(user); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	// Check if user already exists
-	existing, _ := c.GetUser(ctx, user.Username)
-	if existing != nil {
+	exists, err := c.UsernameExists(ctx, user.Username)
+	if err != nil {
+		return err
+	}
+	if exists {
 		return errors.New("username already exists")
 	}
 
@@ -163,24 +134,25 @@ func (c *CassandraClient) AddUser(ctx context.Context, user *User) error {
 
 var ErrAuthenticationFailed error = errors.New("authentication failed")
 
-func (c *CassandraClient) UpdateUser(ctx context.Context, user *User, oldPassword string) error {
-	if err := validUser(user); err != nil {
+func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User, oldPassword string) error {
+	if err := ValidUser(user); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
-	if user.Password == oldPassword {
-		return errors.New("validation failed: new passsword cannot be old password")
-	}
-
-	// Get existing user
-	old, err := c.GetUser(ctx, user.Username)
+	// Validate password
+	old, err := c.GetUser(ctx, NewCredentials(user.Username, oldPassword))
 	if err != nil {
 		return ErrAuthenticationFailed
 	}
 
-	// Verify old password using constant-time comparison
-	if !CheckPasswordHash(oldPassword, old.Password) {
-		return ErrAuthenticationFailed
+	email := user.Email
+	if email == "" {
+		email = old.Email
+	}
+
+	category := user.Category
+	if category < 0 || category > 3 {
+		category = old.Category
 	}
 
 	// Hash new password
@@ -191,86 +163,55 @@ func (c *CassandraClient) UpdateUser(ctx context.Context, user *User, oldPasswor
 
 	if err := c.session.Query(
 		"UPDATE users SET password = ?, email = ?, category = ? WHERE username = ?",
-		hashedPassword, user.Email, user.Category, user.Username).WithContext(ctx).Exec(); err != nil {
+		hashedPassword, email, category, user.Username).WithContext(ctx).Exec(); err != nil {
 		return errors.New("update failed")
 	}
 
 	return nil
 }
 
-func (c *CassandraClient) DeleteUser(ctx context.Context, user *User) error {
-	// Get existing user
-	got, err := c.GetUser(ctx, user.Username)
+func (c *CassandraRepo) DeleteUser(ctx context.Context, username string) error {
+	ok, err := c.UsernameExists(ctx, username)
 	if err != nil {
-		return ErrAuthenticationFailed
+		return fmt.Errorf("deletion: %w", err)
 	}
-
-	// Verify password using constant-time comparison
-	if !CheckPasswordHash(user.Password, got.Password) {
-		return ErrAuthenticationFailed
+	if !ok {
+		return errors.New("username does not exist")
 	}
 
 	if err := c.session.Query(
 		"DELETE FROM users WHERE username = ?",
-		user.Username).WithContext(ctx).Exec(); err != nil {
+		username).WithContext(ctx).Exec(); err != nil {
 		return errors.New("deletion failed")
 	}
 
 	return nil
 }
 
-func (c *CassandraClient) GetUser(ctx context.Context, username string) (*User, error) {
-	// Basic input validation for username
-	if username == "" {
-		return nil, errors.New("username required")
+// Method to check if username exists (for registration)
+func (c *CassandraRepo) UsernameExists(ctx context.Context, username string) (bool, error) {
+	if len(username) < MinUsernameLength {
+		return false, errors.New("username required")
 	}
 	if len(username) > MaxUsernameLength {
-		return nil, errors.New("username too long")
+		return false, errors.New("username too long")
 	}
 
-	user := &User{}
+	var dummy string
 	if err := c.session.Query(
-		"SELECT username, password, email, category FROM users WHERE username = ? LIMIT 1",
-		username).WithContext(ctx).Scan(&user.Username, &user.Password, &user.Email, &user.Category); err != nil {
+		"SELECT username FROM users WHERE username = ? LIMIT 1",
+		username).WithContext(ctx).Scan(&dummy); err != nil {
 		if err == gocql.ErrNotFound {
-			return nil, errors.New("user not found")
-		}
-		return nil, errors.New("database error")
-	}
-
-	return user, nil
-}
-
-// New method for authentication (recommended)
-func (c *CassandraClient) AuthenticateUser(ctx context.Context, username, password string) (*User, error) {
-	user, err := c.GetUser(ctx, username)
-	if err != nil {
-		return nil, ErrAuthenticationFailed
-	}
-
-	if !CheckPasswordHash(password, user.Password) {
-		return nil, ErrAuthenticationFailed
-	}
-
-	// Don't return the password hash
-	user.Password = ""
-	return user, nil
-}
-
-// Method to check if username exists (for registration)
-func (c *CassandraClient) UsernameExists(ctx context.Context, username string) (bool, error) {
-	user, err := c.GetUser(ctx, username)
-	if err != nil {
-		if err.Error() == "user not found" {
 			return false, nil
 		}
-		return false, err
+		return false, errors.New("database error")
 	}
-	return user != nil, nil
+
+	return true, nil
 }
 
-// attempts to retrieve stats from system.stats
-func (c *CassandraClient) Stats(ctx context.Context) (map[string]interface{}, error) {
+// Attempts to retrieve stats from system.stats table
+func (c *CassandraRepo) Stats(ctx context.Context) (map[string]interface{}, error) {
 	var tableName string
 	var sstables int
 	var readLatency float64
@@ -293,7 +234,7 @@ func (c *CassandraClient) Stats(ctx context.Context) (map[string]interface{}, er
 	}, nil
 }
 
-func (c *CassandraClient) Close() {
+func (c *CassandraRepo) Close() {
 	if c.session != nil {
 		c.session.Close()
 	}
