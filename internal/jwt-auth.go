@@ -7,37 +7,52 @@ import (
 	"time"
 )
 
-// JWT_SECRET should be set in the environment variables
-var secretKey = []byte(os.Getenv("JWT_SECRET"))
+type JWTManager struct {
+	secretKey []byte
+	issuer    string
+	duration  time.Duration
+}
 
 type MyCustomClaims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
 
-// CreateJWT creates a JWT token string
-func CreateJWT(username string) (string, error) {
+// NewJWTManager initializes and returns a new JWTManager
+func NewJWTManager() *JWTManager {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		panic("JWT_SECRET environment variable not set")
+	}
+	return &JWTManager{
+		secretKey: []byte(secret),
+		issuer:    "bcr-auth",
+		duration:  15 * time.Minute,
+	}
+}
+
+// CreateToken generates a signed JWT for the given username
+func (j *JWTManager) CreateToken(username string) (string, error) {
 	claims := MyCustomClaims{
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), // token expires in 15 minutes
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.duration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "bcr-auth",
+			Issuer:    j.issuer,
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(secretKey)
+	return token.SignedString(j.secretKey)
 }
 
-// ValidateJWT parses and validates the JWT token string
-func ValidateJWT(tokenStr string) (*MyCustomClaims, error) {
+// ValidateToken verifies the JWT string and returns the claims
+func (j *JWTManager) ValidateToken(tokenStr string) (*MyCustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &MyCustomClaims{}, func(token *jwt.Token) (any, error) {
-		// Make sure that the token method conforms to "SigningMethodHMAC"
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return secretKey, nil
+		return j.secretKey, nil
 	})
 
 	if err != nil {
