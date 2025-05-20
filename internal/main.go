@@ -85,11 +85,10 @@ func (s *Server) register(ctx context.Context, user *db.User) error {
 
 type Payload map[string]interface{}
 
-func parseJSON(w http.ResponseWriter, r *http.Request) (Payload, error) {
+func parseJSON(r *http.Request) (Payload, error) {
 	var payload Payload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return nil, err
+		return nil, fmt.Errorf("json: %w", err)
 	}
 	return payload, nil
 }
@@ -136,27 +135,32 @@ func (p Payload) user() *db.User {
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "login: invalid method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	payload, err := parseJSON(w, r)
+	payload, err := parseJSON(r)
 	if err != nil {
+		http.Error(w, "login: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	cred := payload.credentials()
 	if cred == nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, "login: invalid request", http.StatusBadRequest)
 		return
 	}
 
 	_, err = s.login(r.Context(), cred)
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "login: "+err.Error(), http.StatusUnauthorized)
+		} else if strings.Contains(err.Error(), "internal") {
+			fmt.Println(err)
+			http.Error(w, "Could not log in", http.StatusInternalServerError)
 		} else {
-			http.Error(w, "Invalid user data", http.StatusNotFound)
+			fmt.Println("unknown: ", err)
+			http.Error(w, "Unknown error", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -166,26 +170,31 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "register: invalid method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	payload, err := parseJSON(w, r)
+	payload, err := parseJSON(r)
 	if err != nil {
+		http.Error(w, "register: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	user := payload.user()
 	if user == nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, "register: invalid request", http.StatusBadRequest)
 		return
 	}
 
 	if err := s.register(r.Context(), user); err != nil {
 		if strings.Contains(err.Error(), "validation:") {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		} else {
+			http.Error(w, "register: "+err.Error(), http.StatusBadRequest)
+		} else if strings.Contains(err.Error(), "internal") {
+			fmt.Println(err)
 			http.Error(w, "Failed to add user", http.StatusInternalServerError)
+		} else {
+			fmt.Println("unknown: ", err)
+			http.Error(w, "Unknown error", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -196,18 +205,19 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "update: invalid method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	payload, err := parseJSON(w, r)
+	payload, err := parseJSON(r)
 	if err != nil {
+		http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	user := payload.user()
 	if user == nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, "update: invalid request", http.StatusBadRequest)
 		return
 	}
 
@@ -223,11 +233,15 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.cassandra.UpdateUser(r.Context(), user, password); err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "update: "+err.Error(), http.StatusUnauthorized)
 		} else if strings.Contains(err.Error(), "validation") {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		} else {
+			http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
+		} else if strings.Contains(err.Error(), "internal") {
+			fmt.Println(err)
 			http.Error(w, "Failed to update user", http.StatusInternalServerError)
+		} else {
+			fmt.Println("unknown: ", err)
+			http.Error(w, "Unknown error", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -238,23 +252,30 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "delete: invalid method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	payload, err := parseJSON(w, r)
+	payload, err := parseJSON(r)
 	if err != nil {
+		http.Error(w, "delete: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	username, ok := payload["username"].(string)
 	if !ok {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, "delete: invalid request", http.StatusBadRequest)
 		return
 	}
 
 	if err := s.cassandra.DeleteUser(r.Context(), username); err != nil {
-		http.Error(w, "Failed to delete user", http.StatusInternalServerError)
+		if strings.Contains(err.Error(), "internal") {
+			fmt.Println(err)
+			http.Error(w, "Failed to delete user", http.StatusInternalServerError)
+		} else {
+			fmt.Println("unknown: ", err)
+			http.Error(w, "Unknown error", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -270,6 +291,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 	rStats, err := s.redis.Stats(r.Context())
 	if err != nil {
+		fmt.Println(err)
 		http.Error(w, "Failed to get cache stats", http.StatusInternalServerError)
 		return
 	}
