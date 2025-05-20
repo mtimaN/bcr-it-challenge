@@ -41,7 +41,7 @@ func NewServer() (*Server, error) {
 }
 
 func (s *Server) getUser(ctx context.Context, user *db.User) (*db.User, error) {
-	got, err := s.redis.Get(ctx, user.Username)
+	got, err := s.redis.Get(ctx, user)
 	if err != nil {
 		got, err = s.cassandra.GetUser(ctx, user.Username)
 	}
@@ -177,6 +177,21 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("User deleted successfully"))
 }
 
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	rStats, err := s.redis.Stats(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to get cache stats", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(rStats)
+}
+
 func main() {
 	server, err := NewServer()
 	if err != nil {
@@ -188,6 +203,7 @@ func main() {
 	mux.HandleFunc("/v1/add", server.handleAddUser)
 	mux.HandleFunc("/v1/update", server.handleUpdateUser)
 	mux.HandleFunc("/v1/delete", server.handleDeleteUser)
+	mux.HandleFunc("/v1/stats", server.handleStats)
 
 	port := ":8443"
 	fmt.Printf("Server starting on port %s\n", port)

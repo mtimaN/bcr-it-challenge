@@ -119,6 +119,22 @@ func TestInvalidRequests(t *testing.T) {
 	})
 }
 
+func TestStats(t *testing.T) {
+	resp, err := secureClient.Get(baseURL + "/v1/stats")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	body := parseBody(t, resp)
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &result); err != nil {
+		t.Fatalf("unmarshal failed: %v", body)
+	}
+	
+	t.Logf("Stats: %v", result)
+}
+
 func TestAPI(t *testing.T) {
 	user := TestUser{
 		Username: "apitest",

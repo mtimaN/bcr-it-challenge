@@ -73,7 +73,7 @@ func NewRedisClient(config *RedisConfig) (*RedisClient, error) {
 	defer cancel()
 
 	if _, err := client.Ping(ctx).Result(); err != nil {
-		return nil, fmt.Errorf("failed to connect to redis: %w", err)
+		return nil, fmt.Errorf("connect to redis: %w", err)
 	}
 
 	return &RedisClient{
@@ -89,7 +89,7 @@ func (c *RedisClient) Health(ctx context.Context) error {
 	}
 
 	if _, err := c.client.Ping(ctx).Result(); err != nil {
-		return fmt.Errorf("redis health check failed: %w", err)
+		return fmt.Errorf("redis health check: %w", err)
 	}
 
 	return nil
@@ -120,14 +120,14 @@ func (c *RedisClient) createKey(username string) (string, error) {
 }
 
 // Get retrieves a user from cache
-func (c *RedisClient) Get(ctx context.Context, username string) (*User, error) {
+func (c *RedisClient) Get(ctx context.Context, user *User) (*User, error) {
 	if c.client == nil {
 		return nil, errors.New("redis client is not initialized")
 	}
 
-	key, err := c.createKey(username)
+	key, err := c.createKey(user.Username)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cache key: %w", err)
+		return nil, fmt.Errorf("create cache key: %w", err)
 	}
 
 	val, err := c.client.Get(ctx, key).Result()
@@ -135,17 +135,21 @@ func (c *RedisClient) Get(ctx context.Context, username string) (*User, error) {
 		if errors.Is(err, redis.Nil) {
 			return nil, fmt.Errorf("user not found in cache")
 		}
-		return nil, fmt.Errorf("failed to get from redis: %w", err)
+		return nil, fmt.Errorf("get from redis: %w", err)
 	}
 
-	var user User
-	if err := json.Unmarshal([]byte(val), &user); err != nil {
+	var got User
+	if err := json.Unmarshal([]byte(val), &got); err != nil {
 		// If we can't unmarshal, delete the corrupted entry
 		_ = c.client.Del(ctx, key)
-		return nil, fmt.Errorf("failed to unmarshal cached data: %w", err)
+		return nil, fmt.Errorf("unmarshal cached data: %w", err)
 	}
 
-	return &user, nil
+	if !CheckPasswordHash(user.Password, got.Password) {
+		return nil, errors.New("cache: incorrect password")
+	}
+
+	return user, nil
 }
 
 // Add stores a user in cache
@@ -160,16 +164,21 @@ func (c *RedisClient) Add(ctx context.Context, user *User) error {
 
 	key, err := c.createKey(user.Username)
 	if err != nil {
-		return fmt.Errorf("failed to create cache key: %w", err)
+		return fmt.Errorf("create cache key: %w", err)
+	}
+
+	user.Password, err = HashPassword(user.Password)
+	if err != nil {
+		return fmt.Errorf("cache password hash: %w", err)
 	}
 
 	val, err := json.Marshal(user)
 	if err != nil {
-		return fmt.Errorf("failed to marshal user data: %w", err)
+		return fmt.Errorf("marshal user data: %w", err)
 	}
 
 	if err := c.client.Set(ctx, key, val, c.config.Expiration).Err(); err != nil {
-		return fmt.Errorf("failed to set in redis: %w", err)
+		return fmt.Errorf("set in redis: %w", err)
 	}
 
 	return nil
@@ -183,12 +192,12 @@ func (c *RedisClient) Delete(ctx context.Context, username string) error {
 
 	key, err := c.createKey(username)
 	if err != nil {
-		return fmt.Errorf("failed to create cache key: %w", err)
+		return fmt.Errorf("create cache key: %w", err)
 	}
 
 	deleted, err := c.client.Del(ctx, key).Result()
 	if err != nil {
-		return fmt.Errorf("failed to delete from redis: %w", err)
+		return fmt.Errorf("delete from redis: %w", err)
 	}
 
 	if deleted == 0 {
@@ -206,33 +215,15 @@ func (c *RedisClient) Exists(ctx context.Context, username string) (bool, error)
 
 	key, err := c.createKey(username)
 	if err != nil {
-		return false, fmt.Errorf("failed to create cache key: %w", err)
+		return false, fmt.Errorf("create cache key: %w", err)
 	}
 
 	exists, err := c.client.Exists(ctx, key).Result()
 	if err != nil {
-		return false, fmt.Errorf("failed to check existence in redis: %w", err)
+		return false, fmt.Errorf("check existence in redis: %w", err)
 	}
 
 	return exists > 0, nil
-}
-
-// UpdateExpiration extends the TTL of a cached user
-func (c *RedisClient) UpdateExpiration(ctx context.Context, username string, expiration time.Duration) error {
-	if c.client == nil {
-		return errors.New("redis client is not initialized")
-	}
-
-	key, err := c.createKey(username)
-	if err != nil {
-		return fmt.Errorf("failed to create cache key: %w", err)
-	}
-
-	if err := c.client.Expire(ctx, key, expiration).Err(); err != nil {
-		return fmt.Errorf("failed to update expiration: %w", err)
-	}
-
-	return nil
 }
 
 // Close gracefully closes the Redis connection

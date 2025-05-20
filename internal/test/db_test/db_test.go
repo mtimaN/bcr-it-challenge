@@ -326,7 +326,7 @@ func testRedisBasicCRUD(t *testing.T, ctx context.Context) {
 	user := createTestUser()
 
 	// Invalid get (non-existent user)
-	if _, err := client.Get(ctx, "test123"); err == nil {
+	if _, err := client.Get(ctx, user); err == nil {
 		t.Fatal("expected error on get non-existent user, got none")
 	}
 
@@ -336,18 +336,27 @@ func testRedisBasicCRUD(t *testing.T, ctx context.Context) {
 	}
 
 	// Get and verify user
-	got, err := client.Get(ctx, user.Username)
+	got, err := client.Get(ctx, user)
 	if err != nil {
 		t.Fatalf("get user failed: %v", err)
 	}
 	verifyUsersEqual(t, got, user)
+
+	oldPassword := user.Password
+	user.Password = "some_invalid_password232"
+
+	if _, err := client.Get(ctx, user); err == nil {
+		t.Fatal("expected error on get invalid password, got none")
+	}
+
+	user.Password = oldPassword
 
 	err = client.Delete(ctx, user.Username)
 	if err != nil {
 		t.Fatalf("delete user failed: %v", err)
 	}
 
-	_, err = client.Get(ctx, user.Username)
+	_, err = client.Get(ctx, user)
 	if err == nil {
 		t.Fatalf("delete user failed: user still exists")
 	}
@@ -369,7 +378,7 @@ func testRedisExpiration(t *testing.T, ctx context.Context) {
 	}
 
 	// Verify user exists before expiration
-	if _, err := client.Get(ctx, user.Username); err != nil {
+	if _, err := client.Get(ctx, user); err != nil {
 		t.Fatalf("user should exist before expiration: %v", err)
 	}
 
@@ -377,7 +386,7 @@ func testRedisExpiration(t *testing.T, ctx context.Context) {
 	time.Sleep(config.Expiration + 2*time.Second)
 
 	// Verify user is expired
-	if _, err := client.Get(ctx, user.Username); err == nil {
+	if _, err := client.Get(ctx, user); err == nil {
 		t.Fatal("user still exists after expiration")
 	}
 }

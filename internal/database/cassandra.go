@@ -10,7 +10,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/gocql/gocql"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // CassandraConfig holds the configuration for Cassandra connection
@@ -90,18 +89,6 @@ func (c *CassandraClient) Health(ctx context.Context) error {
 	return nil
 }
 
-// Password hashing functions
-func hashPassword(password string) (string, error) {
-	// Use cost 12 for better security (adjust based on your performance requirements)
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), BcryptCost)
-	return string(bytes), err
-}
-
-func checkPasswordHash(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
-}
-
 func validUser(user *User) error {
 	// Email validation
 	if user.Email == "" {
@@ -160,7 +147,7 @@ func (c *CassandraClient) AddUser(ctx context.Context, user *User) error {
 	}
 
 	// Hash password before storing
-	hashedPassword, err := hashPassword(user.Password)
+	hashedPassword, err := HashPassword(user.Password)
 	if err != nil {
 		return errors.New("password processing failed")
 	}
@@ -192,12 +179,12 @@ func (c *CassandraClient) UpdateUser(ctx context.Context, user *User, oldPasswor
 	}
 
 	// Verify old password using constant-time comparison
-	if !checkPasswordHash(oldPassword, old.Password) {
+	if !CheckPasswordHash(oldPassword, old.Password) {
 		return ErrAuthenticationFailed
 	}
 
 	// Hash new password
-	hashedPassword, err := hashPassword(user.Password)
+	hashedPassword, err := HashPassword(user.Password)
 	if err != nil {
 		return errors.New("password processing failed")
 	}
@@ -219,7 +206,7 @@ func (c *CassandraClient) DeleteUser(ctx context.Context, user *User) error {
 	}
 
 	// Verify password using constant-time comparison
-	if !checkPasswordHash(user.Password, got.Password) {
+	if !CheckPasswordHash(user.Password, got.Password) {
 		return ErrAuthenticationFailed
 	}
 
@@ -261,7 +248,7 @@ func (c *CassandraClient) AuthenticateUser(ctx context.Context, username, passwo
 		return nil, ErrAuthenticationFailed
 	}
 
-	if !checkPasswordHash(password, user.Password) {
+	if !CheckPasswordHash(password, user.Password) {
 		return nil, ErrAuthenticationFailed
 	}
 
@@ -280,6 +267,30 @@ func (c *CassandraClient) UsernameExists(ctx context.Context, username string) (
 		return false, err
 	}
 	return user != nil, nil
+}
+
+// attempts to retrieve stats from system.stats
+func (c *CassandraClient) Stats(ctx context.Context) (map[string]interface{}, error) {
+	var tableName string
+	var sstables int
+	var readLatency float64
+	var writeLatency float64
+
+	err := c.session.Query(`SELECT table_name, sstables_count, read_latency_avg,
+	write_latency_avg FROM system.stats WHERE table_name = ?`, "users").
+		WithContext(ctx).
+		Scan(&tableName, &sstables, &readLatency, &writeLatency)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"table_name":    tableName,
+		"sstables":      sstables,
+		"read_latency":  readLatency,
+		"write_latency": writeLatency,
+	}, nil
 }
 
 func (c *CassandraClient) Close() {
