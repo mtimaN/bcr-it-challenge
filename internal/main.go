@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"db"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"internal/db"
 	"log"
 	"net/http"
 	"os"
@@ -71,7 +71,7 @@ func (s *Server) register(ctx context.Context, user *db.User) error {
 		return err
 	}
 	if ok {
-		return errors.New("username exists")
+		return errors.New("validation: username exists")
 	}
 
 	err = s.cassandra.AddUser(ctx, user)
@@ -153,7 +153,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	_, err = s.login(r.Context(), cred)
 	if err != nil {
-		http.Error(w, "Invalid user data", http.StatusNotFound)
+		if strings.Contains(err.Error(), "unauthorized") {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Invalid user data", http.StatusNotFound)
+		}
 		return
 	}
 
@@ -178,7 +182,11 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.register(r.Context(), user); err != nil {
-		http.Error(w, "Failed to add user", http.StatusInternalServerError)
+		if strings.Contains(err.Error(), "validation:") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, "Failed to add user", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -214,7 +222,13 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.cassandra.UpdateUser(r.Context(), user, password); err != nil {
-		http.Error(w, "Failed to update user", http.StatusInternalServerError)
+		if strings.Contains(err.Error(), "unauthorized") {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+		} else if strings.Contains(err.Error(), "validation") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, "Failed to update user", http.StatusInternalServerError)
+		}
 		return
 	}
 
