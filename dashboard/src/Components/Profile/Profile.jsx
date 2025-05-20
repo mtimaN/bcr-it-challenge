@@ -1,10 +1,9 @@
-import profileIconDay from '../../assets/profileIconDay.png'
-import profileIconNight from '../../assets/profileIconNight.png'
 import React from 'react';
 import './Profile.css';
+import profileIconDay from '../../assets/profile_page/profileIconDay.png'
+import profileIconNight from '../../assets/profile_page/profileIconNight.png'
 
 const Profile = ({ theme, setTheme }) => {
-    
     /* change theme logic */
     const toggle_mode = () => {
       theme === 'light' ? setTheme('dark') : setTheme('light');
