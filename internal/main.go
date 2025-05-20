@@ -114,7 +114,7 @@ func (p Payload) credentials() *db.Credentials {
 func (p Payload) user() *db.User {
 	email, ok := p["email"].(string)
 	if !ok {
-		return nil
+		email = ""
 	}
 
 	cred := p.credentials()
@@ -122,10 +122,15 @@ func (p Payload) user() *db.User {
 		return nil
 	}
 
+	category, ok := p["category"].(int)
+	if !ok {
+		category = -1
+	}
+
 	return &db.User{
 		Credentials: cred,
 		Email:       email,
-		Category:    -1,
+		Category:    category,
 	}
 }
 
@@ -181,16 +186,6 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("User added successfully"))
 }
 
-func (s *Server) validToken(payload Payload) bool {
-	_, ok := payload["JWT_tok"].(string)
-	if !ok {
-		return false
-	}
-
-	//TODO:
-	return true
-}
-
 func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
@@ -199,11 +194,6 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := parseJSON(w, r)
 	if err != nil {
-		return
-	}
-
-	if !s.validToken(payload) {
-		http.Error(w, "Invalid token", http.StatusForbidden)
 		return
 	}
 
@@ -244,11 +234,6 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.validToken(payload) {
-		http.Error(w, "Invalid token", http.StatusForbidden)
-		return
-	}
-
 	username, ok := payload["username"].(string)
 	if !ok {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -267,31 +252,6 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
-		return
-	}
-
-	payload, err := parseJSON(w, r)
-	if err != nil {
-		http.Error(w, "Invalid request", http.StatusMethodNotAllowed)
-		return
-	}
-
-	cred := payload.credentials()
-	if cred == nil {
-		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
-		return
-	}
-
-	username := os.Getenv("API_admin_username")
-	password := os.Getenv("API_admin_password")
-
-	if username == "" || password == "" {
-		username = "admin"
-		password = "APIPass0319"
-	}
-
-	if cred.Password != password || cred.Username != username {
-		http.Error(w, "Invalid credentials", http.StatusForbidden)
 		return
 	}
 

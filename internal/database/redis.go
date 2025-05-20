@@ -167,12 +167,21 @@ func (c *RedisRepo) Add(ctx context.Context, user *User) error {
 		return fmt.Errorf("create cache key: %w", err)
 	}
 
-	user.Password, err = HashPassword(user.Password)
+	rUser := &User{
+		Credentials: &Credentials{
+			Username: user.Username,
+			Password: user.Password,
+		},
+		Email:    user.Email,
+		Category: user.Category,
+	}
+
+	rUser.Password, err = HashPassword(rUser.Password)
 	if err != nil {
 		return fmt.Errorf("cache password hash: %w", err)
 	}
 
-	val, err := json.Marshal(user)
+	val, err := json.Marshal(rUser)
 	if err != nil {
 		return fmt.Errorf("marshal user data: %w", err)
 	}

@@ -13,16 +13,12 @@ import (
 
 const baseURL = "https://localhost:8443"
 
-type TestUser struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
-	Category int    `json:"category"`
-}
-
 type TestPayload struct {
-	User        TestUser `json:"user"`
-	OldPassword string   `json:"old_password,omitempty"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	Email       string `json:"email,omitempty"`
+	OldPassword string `json:"old_password,omitempty"`
+	Category    int    `json:"category,omitempty"`
 }
 
 var secureClient = func() *http.Client {
@@ -90,13 +86,11 @@ func TestInvalidRequests(t *testing.T) {
 
 	// Missing required fields
 	t.Run("MissingFields", func(t *testing.T) {
-		user := TestUser{
-			Username: "", // required field is empty
-			Password: "testpass",
+		resp := makeRequest(t, "/v1/register", TestPayload{
+			Username: "",
+			Password: "testpass123",
 			Email:    "email@example.com",
-			Category: 1,
-		}
-		resp := makeRequest(t, "/v1/register", TestPayload{User: user})
+		})
 		body := parseBody(t, resp)
 		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 			t.Fatalf("expected validation error, got %d - %s", resp.StatusCode, body)
@@ -105,13 +99,11 @@ func TestInvalidRequests(t *testing.T) {
 
 	// Invalid email format
 	t.Run("InvalidEmail", func(t *testing.T) {
-		user := TestUser{
+		resp := makeRequest(t, "/v1/register", TestPayload{
 			Username: "bademail",
 			Password: "pass1234",
 			Email:    "not-an-email",
-			Category: 1,
-		}
-		resp := makeRequest(t, "/v1/register", TestPayload{User: user})
+		})
 		body := parseBody(t, resp)
 		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 			t.Fatalf("expected email validation failure, got %d - %s", resp.StatusCode, body)
@@ -136,16 +128,15 @@ func TestStats(t *testing.T) {
 }
 
 func TestAPI(t *testing.T) {
-	user := TestUser{
+	payload := TestPayload{
 		Username: "apitest",
 		Password: "testpass123",
 		Email:    "apitest@example.com",
-		Category: 1,
 	}
 
 	// --- Add User
 	t.Run("AddUser", func(t *testing.T) {
-		resp := makeRequest(t, "/v1/register", TestPayload{User: user})
+		resp := makeRequest(t, "/v1/register", payload)
 		body := parseBody(t, resp)
 		if resp.StatusCode != http.StatusCreated {
 			t.Fatalf("add user failed: %d - %s", resp.StatusCode, body)
@@ -154,7 +145,7 @@ func TestAPI(t *testing.T) {
 
 	// --- Get User
 	t.Run("GetUser", func(t *testing.T) {
-		resp := makeRequest(t, "/v1/login", TestPayload{User: user})
+		resp := makeRequest(t, "/v1/login", payload)
 		body := parseBody(t, resp)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("get user failed: %d - %s", resp.StatusCode, body)
@@ -163,27 +154,26 @@ func TestAPI(t *testing.T) {
 
 	// --- Update User
 	t.Run("UpdateUser", func(t *testing.T) {
-		updated := user
-		updated.Email = "updated@example.com"
-		updated.Password = "newpass123"
-		updated.Category = 2
+		updated := TestPayload{
+			Username:    payload.Username,
+			Password:    "newpass123",
+			Email:       "updated@example.com",
+			Category:    2,
+			OldPassword: payload.Password,
+		}
 
-		resp := makeRequest(t, "/v1/update", TestPayload{
-			User:        updated,
-			OldPassword: user.Password,
-		})
+		resp := makeRequest(t, "/v1/update", updated)
 		body := parseBody(t, resp)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("update user failed: %d - %s", resp.StatusCode, body)
 		}
 
-		// use updated credentials for remaining tests
-		user = updated
+		payload = updated
 	})
 
 	// --- Delete User
 	t.Run("DeleteUser", func(t *testing.T) {
-		resp := makeRequest(t, "/v1/delete", TestPayload{User: user})
+		resp := makeRequest(t, "/v1/delete", payload)
 		body := parseBody(t, resp)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("delete user failed: %d - %s", resp.StatusCode, body)
@@ -192,7 +182,7 @@ func TestAPI(t *testing.T) {
 
 	// --- Get Deleted User
 	t.Run("GetDeletedUser", func(t *testing.T) {
-		resp := makeRequest(t, "/v1/login", TestPayload{User: user})
+		resp := makeRequest(t, "/v1/login", payload)
 		body := parseBody(t, resp)
 		if resp.StatusCode == http.StatusOK {
 			t.Fatalf("expected failure for deleted user, got 200 - %s", body)

@@ -37,6 +37,16 @@ func NewUser(username, password, email string) *User {
 	}
 }
 
+const (
+	MinPasswordLength = 8
+	MaxPasswordLength = 128
+	MinUsernameLength = 3
+	MaxUsernameLength = 20
+	MinEmailLength    = 3
+	MaxEmailLength    = 254 // RFC 5321 limit
+	BcryptCost        = 12  // increase for better security
+)
+
 // Password hashing functions
 func HashPassword(password string) (string, error) {
 	// Use cost 12 for better security (adjust based on your performance requirements)
@@ -51,9 +61,6 @@ func CheckPasswordHash(password, hash string) bool {
 
 func ValidCredentials(username, password string) error {
 	// Username validation
-	if username == "" {
-		return errors.New("username is required")
-	}
 	if len(username) < MinUsernameLength || len(username) > MaxUsernameLength {
 		return fmt.Errorf("username must be %d-%d characters", MinUsernameLength, MaxUsernameLength)
 	}
@@ -65,9 +72,6 @@ func ValidCredentials(username, password string) error {
 	}
 
 	// Password validation
-	if password == "" {
-		return errors.New("password is required")
-	}
 	if len(password) < MinPasswordLength {
 		return fmt.Errorf("password must be at least %d characters long", MinPasswordLength)
 	}
@@ -80,8 +84,8 @@ func ValidCredentials(username, password string) error {
 
 func ValidUser(user *User) error {
 	// Email validation
-	if user.Email == "" {
-		return errors.New("email is required")
+	if len(user.Email) < MinEmailLength {
+		return errors.New("invalid email format")
 	}
 	if len(user.Email) > MaxEmailLength {
 		return errors.New("email too long")
@@ -98,10 +102,6 @@ func ValidUser(user *User) error {
 	// Check UTF-8 validity
 	if !utf8.ValidString(user.Username) || !utf8.ValidString(user.Email) {
 		return errors.New("invalid character encoding")
-	}
-
-	if user.Category < 0 || user.Category > 3 {
-		return errors.New("invalid category")
 	}
 
 	return nil

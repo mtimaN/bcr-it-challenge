@@ -26,15 +26,6 @@ type CassandraRepo struct {
 	config  *CassandraConfig
 }
 
-const (
-	MinPasswordLength = 8
-	MaxPasswordLength = 128
-	MinUsernameLength = 3
-	MaxUsernameLength = 20
-	MaxEmailLength    = 254 // RFC 5321 limit
-	BcryptCost        = 12  // increase for better security
-)
-
 func NewCassandraConfig(username, password, keyspace string) *CassandraConfig {
 	hosts := []string{"localhost"}
 
@@ -87,15 +78,14 @@ func (c *CassandraRepo) Health(ctx context.Context) error {
 }
 
 func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, error) {
-	if cred == nil {
-		return nil, errors.New("nil credentials")
-	}
 	// Basic input validation for username
 	if err := ValidCredentials(cred.Username, cred.Password); err != nil {
 		return nil, fmt.Errorf("get: %w", err)
 	}
-	
+
 	user := &User{}
+	user.Credentials = &Credentials{}
+
 	if err := c.session.Query(
 		"SELECT username, password, email, category FROM users WHERE username = ? LIMIT 1",
 		cred.Username).WithContext(ctx).Scan(&user.Username, &user.Password, &user.Email, &user.Category); err != nil {
@@ -175,8 +165,8 @@ func (c *CassandraRepo) DeleteUser(ctx context.Context, username string) error {
 	if err != nil {
 		return fmt.Errorf("deletion: %w", err)
 	}
-	if ok {
-		return errors.New("username exists")
+	if !ok {
+		return errors.New("username does not exist")
 	}
 
 	if err := c.session.Query(

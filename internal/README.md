@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS cass_keyspace.users (
 To start in background:
 
 ```bash
-go run {proj_root}/internal/main.go &
+cd {proj_root}/internal/ && go run main.go
 ```
 
 In order for the server to run, you must have valid openssl certificates in *{proj_root}/certs*. To create them, use this command in *proj_root*:
@@ -46,7 +46,27 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout certs/server.key -ou
 
 ### Tests
 
+In another terminal:
+
 ```bash
 cd {proj_root}/internal/test/db_test && go test -v; cd -
 cd {proj_root}/internal/test/server_test && go test -v; cd -
+```
+
+
+In case a Cassandra test fails, you might have to run:
+
+```cqlsh
+TRUNCATE cass_keyspace.users;
+```
+
+inside the docker cqlsh (see *Databases* section)
+
+
+## Closing the app
+
+Close the server with a simple interrupt (*CTRL+C*), then run:
+
+```bash
+docker-compose down
 ```
