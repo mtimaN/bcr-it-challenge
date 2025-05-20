@@ -197,19 +197,18 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	password, ok := payload["old_password"].(string)
-	if !ok {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-
 	user := payload.user()
 	if user == nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	if user.Email == "" && user.Category == -1 && password == user.Password {
+	password, ok := payload["old_password"].(string)
+	if !ok {
+		password = user.Password
+	}
+
+	if ok && password == user.Password {
 		http.Error(w, "New password cannot be the same as the old one", http.StatusBadRequest)
 		return
 	}
