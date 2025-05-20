@@ -209,7 +209,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if password == user.Password {
+	if user.Email == "" && user.Category == -1 && password == user.Password {
 		http.Error(w, "New password cannot be the same as the old one", http.StatusBadRequest)
 		return
 	}

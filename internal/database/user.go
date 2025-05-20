@@ -84,15 +84,17 @@ func ValidCredentials(username, password string) error {
 
 func ValidUser(user *User) error {
 	// Email validation
-	if len(user.Email) < MinEmailLength {
-		return errors.New("invalid email format")
-	}
-	if len(user.Email) > MaxEmailLength {
-		return errors.New("email too long")
-	}
-	_, err := mail.ParseAddress(user.Email)
-	if err != nil {
-		return errors.New("invalid email format")
+	if user.Email != "" {
+		if len(user.Email) < MinEmailLength {
+			return errors.New("invalid email format")
+		}
+		if len(user.Email) > MaxEmailLength {
+			return errors.New("email too long")
+		}
+		_, err := mail.ParseAddress(user.Email)
+		if err != nil {
+			return errors.New("invalid email format")
+		}
 	}
 
 	if err := ValidCredentials(user.Username, user.Password); err != nil {

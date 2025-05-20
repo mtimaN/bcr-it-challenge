@@ -140,9 +140,19 @@ func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User, oldPassword 
 	}
 
 	// Validate password
-	_, err := c.GetUser(ctx, NewCredentials(user.Username, oldPassword))
+	old, err := c.GetUser(ctx, NewCredentials(user.Username, oldPassword))
 	if err != nil {
 		return ErrAuthenticationFailed
+	}
+
+	email := user.Email
+	if email == "" {
+		email = old.Email
+	}
+
+	category := user.Category
+	if category < 0 || category > 3 {
+		category = old.Category
 	}
 
 	// Hash new password
@@ -153,7 +163,7 @@ func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User, oldPassword 
 
 	if err := c.session.Query(
 		"UPDATE users SET password = ?, email = ?, category = ? WHERE username = ?",
-		hashedPassword, user.Email, user.Category, user.Username).WithContext(ctx).Exec(); err != nil {
+		hashedPassword, email, category, user.Username).WithContext(ctx).Exec(); err != nil {
 		return errors.New("update failed")
 	}
 
