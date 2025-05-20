@@ -28,8 +28,8 @@ type RedisConfig struct {
 	KeyPrefix    string // Add namespace for keys
 }
 
-// RedisClient is a wrapper around the Redis client
-type RedisClient struct {
+// RedisRepo is a wrapper around the Redis client
+type RedisRepo struct {
 	client *redis.Client
 	config *RedisConfig
 }
@@ -51,8 +51,8 @@ func NewRedisConfig(password string) *RedisConfig {
 	}
 }
 
-// NewRedisClient creates a new Redis client with improved configuration
-func NewRedisClient(config *RedisConfig) (*RedisClient, error) {
+// NewRedisRepo creates a new Redis client with improved configuration
+func NewRedisRepo(config *RedisConfig) (*RedisRepo, error) {
 	if config == nil {
 		return nil, errors.New("redis config cannot be nil")
 	}
@@ -76,14 +76,14 @@ func NewRedisClient(config *RedisConfig) (*RedisClient, error) {
 		return nil, fmt.Errorf("connect to redis: %w", err)
 	}
 
-	return &RedisClient{
+	return &RedisRepo{
 		client: client,
 		config: config,
 	}, nil
 }
 
 // Health checks the Redis connection health
-func (c *RedisClient) Health(ctx context.Context) error {
+func (c *RedisRepo) Health(ctx context.Context) error {
 	if c.client == nil {
 		return errors.New("redis client is nil")
 	}
@@ -96,7 +96,7 @@ func (c *RedisClient) Health(ctx context.Context) error {
 }
 
 // createKey creates a secure, namespaced key from username
-func (c *RedisClient) createKey(username string) (string, error) {
+func (c *RedisRepo) createKey(username string) (string, error) {
 	// Input validation
 	if username == "" {
 		return "", errors.New("username cannot be empty")
@@ -120,12 +120,12 @@ func (c *RedisClient) createKey(username string) (string, error) {
 }
 
 // Get retrieves a user from cache
-func (c *RedisClient) Get(ctx context.Context, user *User) (*User, error) {
+func (c *RedisRepo) Get(ctx context.Context, cred *Credentials) (*User, error) {
 	if c.client == nil {
 		return nil, errors.New("redis client is not initialized")
 	}
 
-	key, err := c.createKey(user.Username)
+	key, err := c.createKey(cred.Username)
 	if err != nil {
 		return nil, fmt.Errorf("create cache key: %w", err)
 	}
@@ -138,26 +138,26 @@ func (c *RedisClient) Get(ctx context.Context, user *User) (*User, error) {
 		return nil, fmt.Errorf("get from redis: %w", err)
 	}
 
-	var got User
-	if err := json.Unmarshal([]byte(val), &got); err != nil {
+	var user User
+	if err := json.Unmarshal([]byte(val), &user); err != nil {
 		// If we can't unmarshal, delete the corrupted entry
 		_ = c.client.Del(ctx, key)
 		return nil, fmt.Errorf("unmarshal cached data: %w", err)
 	}
 
-	if !CheckPasswordHash(user.Password, got.Password) {
+	if !CheckPasswordHash(cred.Password, user.Password) {
 		return nil, errors.New("cache: incorrect password")
 	}
 
-	return user, nil
+	user.Password = cred.Password
+	return &user, nil
 }
 
 // Add stores a user in cache
-func (c *RedisClient) Add(ctx context.Context, user *User) error {
+func (c *RedisRepo) Add(ctx context.Context, user *User) error {
 	if c.client == nil {
 		return errors.New("redis client is not initialized")
 	}
-
 	if user == nil {
 		return errors.New("user cannot be nil")
 	}
@@ -185,7 +185,7 @@ func (c *RedisClient) Add(ctx context.Context, user *User) error {
 }
 
 // Delete removes a user from cache
-func (c *RedisClient) Delete(ctx context.Context, username string) error {
+func (c *RedisRepo) Delete(ctx context.Context, username string) error {
 	if c.client == nil {
 		return errors.New("redis client is not initialized")
 	}
@@ -208,7 +208,7 @@ func (c *RedisClient) Delete(ctx context.Context, username string) error {
 }
 
 // Exists checks if a user exists in cache without retrieving the full data
-func (c *RedisClient) Exists(ctx context.Context, username string) (bool, error) {
+func (c *RedisRepo) Exists(ctx context.Context, username string) (bool, error) {
 	if c.client == nil {
 		return false, errors.New("redis client is not initialized")
 	}
@@ -227,7 +227,7 @@ func (c *RedisClient) Exists(ctx context.Context, username string) (bool, error)
 }
 
 // Close gracefully closes the Redis connection
-func (c *RedisClient) Close() error {
+func (c *RedisRepo) Close() error {
 	if c.client != nil {
 		return c.client.Close()
 	}
@@ -235,7 +235,7 @@ func (c *RedisClient) Close() error {
 }
 
 // Stats returns basic Redis statistics
-func (c *RedisClient) Stats(ctx context.Context) (map[string]interface{}, error) {
+func (c *RedisRepo) Stats(ctx context.Context) (map[string]interface{}, error) {
 	if c.client == nil {
 		return nil, errors.New("redis client is not initialized")
 	}
