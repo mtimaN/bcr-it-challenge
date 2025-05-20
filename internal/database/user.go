@@ -1,9 +1,6 @@
 package db
 
-import (
-	"github.com/gocql/gocql"
-	"github.com/google/uuid"
-)
+import "golang.org/x/crypto/bcrypt"
 
 // User represents a user in the system
 type User struct {
@@ -13,18 +10,6 @@ type User struct {
 	Category int    `json:"category"`
 }
 
-func UserID(username string) (gocql.UUID, error) {
-	namespace := uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
-	id := uuid.NewSHA1(namespace, []byte(username))
-
-	cqlID, err := gocql.UUIDFromBytes(id[:])
-	if err != nil {
-		return gocql.UUID{}, err
-	}
-
-	return cqlID, nil
-}
-
 func NewUser(username string, password string, email string) *User {
 	return &User{
 		Username: username,
@@ -32,4 +17,16 @@ func NewUser(username string, password string, email string) *User {
 		Email:    email,
 		Category: -1,
 	}
+}
+
+// Password hashing functions
+func HashPassword(password string) (string, error) {
+	// Use cost 12 for better security (adjust based on your performance requirements)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), BcryptCost)
+	return string(bytes), err
+}
+
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
