@@ -66,12 +66,12 @@ func NewCassandraRepo(config *CassandraConfig) (*CassandraRepo, error) {
 
 func (c *CassandraRepo) Health(ctx context.Context) error {
 	if c.session == nil {
-		return errors.New("cassandra session is nil")
+		return errors.New("session: session is nil")
 	}
 
 	var test string
 	if err := c.session.Query("SELECT release_version FROM system.local").WithContext(ctx).Scan(&test); err != nil {
-		return fmt.Errorf("cassandra health: %w", err)
+		return fmt.Errorf("health: %w", err)
 	}
 
 	return nil
@@ -85,9 +85,9 @@ func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, 
 		"SELECT username, password, email, category FROM users WHERE username = ? LIMIT 1",
 		cred.Username).WithContext(ctx).Scan(&user.Username, &user.Password, &user.Email, &user.Category); err != nil {
 		if err == gocql.ErrNotFound {
-			return nil, errors.New("user not found")
+			return nil, errors.New("not found: user not found")
 		}
-		return nil, errors.New("database error")
+		return nil, errors.New("internal: database error")
 	}
 
 	user.Password = cred.Password
@@ -95,8 +95,11 @@ func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, 
 }
 
 func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
+	if user.Email == "" {
+		return fmt.Errorf("validation: invalid email")
+	}
 	if err := ValidUser(user); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+		return fmt.Errorf("validation: %w", err)
 	}
 
 	// Check if user already exists
@@ -105,35 +108,33 @@ func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
 		return err
 	}
 	if exists {
-		return errors.New("username already exists")
+		return errors.New("validation: username already exists")
 	}
 
 	// Hash password before storing
 	hashedPassword, err := HashPassword(user.Password)
 	if err != nil {
-		return errors.New("password processing failed")
+		return errors.New("validation: password processing failed")
 	}
 
 	if err := c.session.Query(
 		"INSERT INTO users (username, password, email, category) VALUES (?, ?, ?, ?)",
 		user.Username, hashedPassword, user.Email, user.Category).WithContext(ctx).Exec(); err != nil {
-		return errors.New("user creation failed")
+		return errors.New("validation: user creation failed")
 	}
 
 	return nil
 }
 
-var ErrAuthenticationFailed error = errors.New("authentication failed")
-
 func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User, oldPassword string) error {
 	if err := ValidUser(user); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+		return fmt.Errorf("validation: %w", err)
 	}
 
 	// Validate password
 	old, err := c.GetUser(ctx, NewCredentials(user.Username, oldPassword))
 	if err != nil {
-		return ErrAuthenticationFailed
+		return err
 	}
 
 	email := user.Email
@@ -149,7 +150,7 @@ func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User, oldPassword 
 	// Hash new password
 	hashedPassword, err := HashPassword(user.Password)
 	if err != nil {
-		return errors.New("password processing failed")
+		return errors.New("internal: password processing failed")
 	}
 
 	if err := c.session.Query(
@@ -164,16 +165,16 @@ func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User, oldPassword 
 func (c *CassandraRepo) DeleteUser(ctx context.Context, username string) error {
 	ok, err := c.UsernameExists(ctx, username)
 	if err != nil {
-		return fmt.Errorf("deletion: %w", err)
+		return err
 	}
 	if !ok {
-		return errors.New("username does not exist")
+		return errors.New("validation: username does not exist")
 	}
 
 	if err := c.session.Query(
 		"DELETE FROM users WHERE username = ?",
 		username).WithContext(ctx).Exec(); err != nil {
-		return errors.New("deletion failed")
+		return errors.New("internal: deletion failed")
 	}
 
 	return nil
@@ -182,10 +183,10 @@ func (c *CassandraRepo) DeleteUser(ctx context.Context, username string) error {
 // Method to check if username exists (for registration)
 func (c *CassandraRepo) UsernameExists(ctx context.Context, username string) (bool, error) {
 	if len(username) < MinUsernameLength {
-		return false, errors.New("username required")
+		return false, errors.New("validation: username required")
 	}
 	if len(username) > MaxUsernameLength {
-		return false, errors.New("username too long")
+		return false, errors.New("validation: username too long")
 	}
 
 	var dummy string
@@ -195,7 +196,7 @@ func (c *CassandraRepo) UsernameExists(ctx context.Context, username string) (bo
 		if err == gocql.ErrNotFound {
 			return false, nil
 		}
-		return false, errors.New("database error")
+		return false, errors.New("internal: database error")
 	}
 
 	return true, nil
