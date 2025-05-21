@@ -13,6 +13,18 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+// UserCache defines the interface for cache operations
+type UserCache interface {
+	Get(ctx context.Context, username string) (*User, error)
+	Add(ctx context.Context, user *User) error
+	Delete(ctx context.Context, username string) error
+	Exists(ctx context.Context, username string) (bool, error)
+	Extend(ctx context.Context, username string) error
+	Health(ctx context.Context) error
+	Close() error
+	Stats(ctx context.Context) (map[string]interface{}, error)
+}
+
 // RedisConfig holds configuration for Redis connection
 type RedisConfig struct {
 	Addr         string
@@ -25,10 +37,10 @@ type RedisConfig struct {
 	WriteTimeout time.Duration
 	MaxRetries   int
 	Expiration   time.Duration
-	KeyPrefix    string // Add namespace for keys
+	KeyPrefix    string
 }
 
-// RedisRepo is a wrapper around the Redis client
+// RedisRepo implements the UserCache interface using Redis
 type RedisRepo struct {
 	client *redis.Client
 	config *RedisConfig
@@ -47,12 +59,12 @@ func NewRedisConfig(password string) *RedisConfig {
 		WriteTimeout: 3 * time.Second,
 		MaxRetries:   3,
 		Expiration:   24 * time.Hour,
-		KeyPrefix:    "cache:user:", // Namespace for cache keys
+		KeyPrefix:    "cache:user:",
 	}
 }
 
 // NewRedisRepo creates a new Redis client with improved configuration
-func NewRedisRepo(config *RedisConfig) (*RedisRepo, error) {
+func NewRedisRepo(config *RedisConfig) (UserCache, error) {
 	if config == nil {
 		return nil, errors.New("redis config cannot be nil")
 	}
@@ -76,61 +88,46 @@ func NewRedisRepo(config *RedisConfig) (*RedisRepo, error) {
 		return nil, fmt.Errorf("connect to redis: %w", err)
 	}
 
-	return &RedisRepo{
-		client: client,
-		config: config,
-	}, nil
-}
-
-// Health checks the Redis connection health
-func (c *RedisRepo) Health(ctx context.Context) error {
-	if c.client == nil {
-		return errors.New("internal: redis client is nil")
-	}
-
-	if _, err := c.client.Ping(ctx).Result(); err != nil {
-		return fmt.Errorf("health: %w", err)
-	}
-
-	return nil
+	return &RedisRepo{client: client, config: config}, nil
 }
 
 // createKey creates a secure, namespaced key from username
-func (c *RedisRepo) createKey(username string) (string, error) {
-	// Input validation
+func (r *RedisRepo) createKey(username string) (string, error) {
 	if username == "" {
 		return "", errors.New("validation: username cannot be empty")
 	}
 
-	// Normalize username (trim spaces, convert to lowercase)
 	username = strings.ToLower(strings.TrimSpace(username))
-
-	// Additional validation - ensure username doesn't contain control characters
 	if strings.ContainsAny(username, "\r\n\t\000") {
 		return "", errors.New("validation: username contains invalid characters")
 	}
 
-	// Create hash
 	h := sha256.New()
 	h.Write([]byte(username))
-	hash := hex.EncodeToString(h.Sum(nil))
+	return r.config.KeyPrefix + hex.EncodeToString(h.Sum(nil)), nil
+}
 
-	// Return namespaced key
-	return c.config.KeyPrefix + hash, nil
+// Health checks the Redis connection health
+func (r *RedisRepo) Health(ctx context.Context) error {
+	if r.client == nil {
+		return errors.New("internal: redis client is nil")
+	}
+	_, err := r.client.Ping(ctx).Result()
+	return err
 }
 
 // Get retrieves a user from cache
-func (c *RedisRepo) Get(ctx context.Context, username string) (*User, error) {
-	if c.client == nil {
+func (r *RedisRepo) Get(ctx context.Context, username string) (*User, error) {
+	if r.client == nil {
 		return nil, errors.New("internal: redis client is not initialized")
 	}
 
-	key, err := c.createKey(username)
+	key, err := r.createKey(username)
 	if err != nil {
 		return nil, fmt.Errorf("internal: %w", err)
 	}
 
-	val, err := c.client.Get(ctx, key).Result()
+	val, err := r.client.Get(ctx, key).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, fmt.Errorf("not found: user not found in cache")
@@ -140,25 +137,25 @@ func (c *RedisRepo) Get(ctx context.Context, username string) (*User, error) {
 
 	var user User
 	if err := json.Unmarshal([]byte(val), &user); err != nil {
-		// If we can't unmarshal, delete the corrupted entry
-		_ = c.client.Del(ctx, key)
+		_ = r.client.Del(ctx, key)
 		return nil, fmt.Errorf("internal: %w", err)
 	}
 
 	return &user, nil
 }
 
-func (c *RedisRepo) Extend(ctx context.Context, username string) error {
-	if c.client == nil {
+// Extend extends the expiration time of a cached user
+func (r *RedisRepo) Extend(ctx context.Context, username string) error {
+	if r.client == nil {
 		return errors.New("internal: redis client is not initialized")
 	}
 
-	key, err := c.createKey(username)
+	key, err := r.createKey(username)
 	if err != nil {
 		return fmt.Errorf("internal: %w", err)
 	}
 
-	success, err := c.client.Expire(ctx, key, c.config.Expiration).Result()
+	success, err := r.client.Expire(ctx, key, r.config.Expiration).Result()
 	if err != nil {
 		return err
 	}
@@ -169,15 +166,15 @@ func (c *RedisRepo) Extend(ctx context.Context, username string) error {
 }
 
 // Add stores a user in cache
-func (c *RedisRepo) Add(ctx context.Context, user *User) error {
-	if c.client == nil {
+func (r *RedisRepo) Add(ctx context.Context, user *User) error {
+	if r.client == nil {
 		return errors.New("internal: redis client is not initialized")
 	}
 	if user == nil {
 		return errors.New("validation: user cannot be nil")
 	}
 
-	key, err := c.createKey(user.Username)
+	key, err := r.createKey(user.Username)
 	if err != nil {
 		return fmt.Errorf("internal: %w", err)
 	}
@@ -201,25 +198,21 @@ func (c *RedisRepo) Add(ctx context.Context, user *User) error {
 		return fmt.Errorf("internal: %w", err)
 	}
 
-	if err := c.client.Set(ctx, key, val, c.config.Expiration).Err(); err != nil {
-		return fmt.Errorf("internal: %w", err)
-	}
-
-	return nil
+	return r.client.Set(ctx, key, val, r.config.Expiration).Err()
 }
 
 // Delete removes a user from cache
-func (c *RedisRepo) Delete(ctx context.Context, username string) error {
-	if c.client == nil {
+func (r *RedisRepo) Delete(ctx context.Context, username string) error {
+	if r.client == nil {
 		return errors.New("internal: redis client is not initialized")
 	}
 
-	key, err := c.createKey(username)
+	key, err := r.createKey(username)
 	if err != nil {
 		return fmt.Errorf("internal: %w", err)
 	}
 
-	deleted, err := c.client.Del(ctx, key).Result()
+	deleted, err := r.client.Del(ctx, key).Result()
 	if err != nil {
 		return fmt.Errorf("internal: %w", err)
 	}
@@ -231,18 +224,18 @@ func (c *RedisRepo) Delete(ctx context.Context, username string) error {
 	return nil
 }
 
-// Exists checks if a user exists in cache without retrieving the full data
-func (c *RedisRepo) Exists(ctx context.Context, username string) (bool, error) {
-	if c.client == nil {
+// Exists checks if a user exists in cache
+func (r *RedisRepo) Exists(ctx context.Context, username string) (bool, error) {
+	if r.client == nil {
 		return false, errors.New("internal: redis client is not initialized")
 	}
 
-	key, err := c.createKey(username)
+	key, err := r.createKey(username)
 	if err != nil {
 		return false, fmt.Errorf("internal: create cache key: %w", err)
 	}
 
-	exists, err := c.client.Exists(ctx, key).Result()
+	exists, err := r.client.Exists(ctx, key).Result()
 	if err != nil {
 		return false, fmt.Errorf("internal: %w", err)
 	}
@@ -251,21 +244,20 @@ func (c *RedisRepo) Exists(ctx context.Context, username string) (bool, error) {
 }
 
 // Close gracefully closes the Redis connection
-func (c *RedisRepo) Close() error {
-	if c.client != nil {
-		return c.client.Close()
+func (r *RedisRepo) Close() error {
+	if r.client != nil {
+		return r.client.Close()
 	}
 	return nil
 }
 
 // Stats returns basic Redis statistics
-func (c *RedisRepo) Stats(ctx context.Context) (map[string]interface{}, error) {
-	if c.client == nil {
+func (r *RedisRepo) Stats(ctx context.Context) (map[string]interface{}, error) {
+	if r.client == nil {
 		return nil, errors.New("internal: redis client is not initialized")
 	}
 
-	poolStats := c.client.PoolStats()
-
+	poolStats := r.client.PoolStats()
 	return map[string]interface{}{
 		"total_connections": poolStats.TotalConns,
 		"idle_connections":  poolStats.IdleConns,

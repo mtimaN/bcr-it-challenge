@@ -13,8 +13,8 @@ import (
 )
 
 type Server struct {
-	cassandra  *db.CassandraRepo
-	redis      *db.RedisRepo
+	userRepo   db.UserRepository
+	userCache  db.UserCache
 	jwtmanager *JWTManager
 }
 
@@ -24,20 +24,20 @@ func NewServer() (*Server, error) {
 	password := getEnvOrDefault("CASS_PASSWORD", "BPass0319")
 	keyspace := getEnvOrDefault("CASS_KEYSPACE", "cass_keyspace")
 
-	cassandra, err := db.NewCassandraRepo(db.NewCassandraConfig(username, password, keyspace))
+	userRepo, err := db.NewCassandraRepo(db.NewCassandraConfig(username, password, keyspace))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Cassandra: %w", err)
 	}
 
 	redisPassword := getEnvOrDefault("REDIS_PASSWORD", "RPass0319")
-	redis, err := db.NewRedisRepo(db.NewRedisConfig(redisPassword))
+	userCache, err := db.NewRedisRepo(db.NewRedisConfig(redisPassword))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Redis: %w", err)
 	}
 
 	return &Server{
-		cassandra:  cassandra,
-		redis:      redis,
+		userRepo:   userRepo,
+		userCache:  userCache,
 		jwtmanager: NewJWTManager(),
 	}, nil
 }
@@ -51,9 +51,9 @@ func getEnvOrDefault(key, defaultValue string) string {
 
 func (s *Server) loginCheck(ctx context.Context, cred *db.Credentials) (*db.User, error) {
 	// Try Redis first, fallback to Cassandra
-	user, err := s.redis.Get(ctx, cred.Username)
+	user, err := s.userCache.Get(ctx, cred.Username)
 	if err != nil && !strings.Contains(err.Error(), "incorrect password") {
-		user, err = s.cassandra.GetUser(ctx, cred.Username)
+		user, err = s.userRepo.GetUser(ctx, cred.Username)
 	}
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (s *Server) loginCheck(ctx context.Context, cred *db.Credentials) (*db.User
 		return nil, errors.New("unauthorized: incorrect password")
 	}
 
-	s.redis.Add(ctx, user)
+	s.userCache.Add(ctx, user)
 	return user, nil
 }
 
@@ -81,9 +81,9 @@ func (s *Server) login(ctx context.Context, cred *db.Credentials) (string, error
 }
 
 func (s *Server) register(ctx context.Context, user *db.User) error {
-	ok, err := s.redis.Exists(ctx, user.Username)
+	ok, err := s.userCache.Exists(ctx, user.Username)
 	if err != nil || !ok {
-		ok, err = s.cassandra.UsernameExists(ctx, user.Username)
+		ok, err = s.userRepo.UsernameExists(ctx, user.Username)
 	}
 	if err != nil {
 		return err
@@ -92,11 +92,11 @@ func (s *Server) register(ctx context.Context, user *db.User) error {
 		return errors.New("validation: username exists")
 	}
 
-	if err := s.cassandra.AddUser(ctx, user); err != nil {
+	if err := s.userRepo.AddUser(ctx, user); err != nil {
 		return err
 	}
 
-	s.redis.Add(ctx, user)
+	s.userCache.Add(ctx, user)
 	return nil
 }
 
@@ -281,7 +281,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	updatedUser := db.NewUser(username, newPassword, email)
 	updatedUser.Category = category
 
-	if err := s.cassandra.UpdateUser(r.Context(), updatedUser); err != nil {
+	if err := s.userRepo.UpdateUser(r.Context(), updatedUser); err != nil {
 		log.Printf("Update user error: %v", err)
 		if strings.Contains(err.Error(), "unauthorized") {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -293,7 +293,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.redis.Add(r.Context(), user)
+	s.userCache.Add(r.Context(), user)
 	w.Write([]byte("User updated successfully"))
 }
 
@@ -309,9 +309,9 @@ func (s *Server) handleGetAdsCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.redis.Get(r.Context(), username)
+	user, err := s.userCache.Get(r.Context(), username)
 	if err != nil {
-		user, err = s.cassandra.GetUser(r.Context(), username)
+		user, err = s.userRepo.GetUser(r.Context(), username)
 	}
 	if err != nil {
 		log.Printf("Get user error: %v", err)
@@ -319,7 +319,7 @@ func (s *Server) handleGetAdsCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.redis.Extend(r.Context(), username)
+	s.userCache.Extend(r.Context(), username)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]int{"category": user.Category})
@@ -337,13 +337,13 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.cassandra.DeleteUser(r.Context(), username); err != nil {
+	if err := s.userRepo.DeleteUser(r.Context(), username); err != nil {
 		log.Printf("Delete user error: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	s.redis.Delete(r.Context(), username)
+	s.userCache.Delete(r.Context(), username)
 	w.Write([]byte("User deleted successfully"))
 }
 
@@ -353,7 +353,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rStats, err := s.redis.Stats(r.Context())
+	rStats, err := s.userCache.Stats(r.Context())
 	if err != nil {
 		log.Printf("Stats error: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
