@@ -1,0 +1,43 @@
+/* src/Components/Profile/Profile.css */
+
+.profile-container {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 2vw;
+  }
+  
+  /* White square container */
+  .square {
+    position: relative;  /* Keep this relative to allow positioning inside */
+    width: 20vw;
+    height: 25vw;
+    background-color: white;
+    transition: all 0.3s ease;
+    
+    /* Flexbox is only for other elements, not the icon */
+    display: flex;
+    flex-direction: column;
+    align-items: center;      
+    justify-content: center;  
+    gap: 2vw;                 /* Gap still works for flex children */
+  }
+  
+  /* Profile icon styling with custom positioning */
+  .profile-icon {
+    position: absolute;
+    top: 23%;       /* Position from the top of the square */
+    left: 50%;      /* Center horizontally */
+    transform: translate(-50%, -50%); /* Center the icon itself */
+    width: 8vw;
+    z-index: 2;     /* Keep on top */
+  }
+  
+  /* Move text down to accommodate the icon position */
+  .square-text {
+    font-family: 'Open Sans', sans-serif;
+    font-size: 2vw;
+    color: #333;
+    margin: 0;
+    margin-top: 7vw;  /* Add space to account for the icon's position */
+  }

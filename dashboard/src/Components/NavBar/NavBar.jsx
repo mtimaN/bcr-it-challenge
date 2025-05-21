@@ -1,12 +1,13 @@
 import React from 'react'
 import './NavBar.css'
-import bcrLogo from '../../assets/bcrLogo.png'
-import sun from '../../assets/dayLogo.png'
-import moon from '../../assets/nightLogo.png'
-import magGlassDark from '../../assets/magGlassD.png'
-import magGlassLight from '../../assets/magGlassL.png'
-import profileIconDark from '../../assets/profileIconD.png'
-import profileIconLight from '../../assets/profileIconL.png'
+import bcrLogo from '../../assets/nav_bar/bcrLogo.png'
+import sun from '../../assets/nav_bar/dayLogo.png'
+import moon from '../../assets/nav_bar/nightLogo.png'
+import magGlassDark from '../../assets/nav_bar/magGlassD.png'
+import magGlassLight from '../../assets/nav_bar/magGlassL.png'
+
+/* for navigation */
+import { NavLink, Link } from 'react-router-dom';
 
 
 const NavBar = ({theme, setTheme}) => {
@@ -20,10 +21,11 @@ const NavBar = ({theme, setTheme}) => {
     <div className='navbar'>
         <img src={bcrLogo} alt="" className='logo'/>
         <ul>
-            <li>Home</li>
-            <li>Transactions</li>
-            <li>Personalized Advice</li>
-            <li>User Profile</li>
+            <li><NavLink to="/home" className={({ isActive }) => isActive ? 'active-link' : ''}>Home</NavLink></li>
+            <li><NavLink to="/discover" className={({ isActive }) => isActive ? 'active-link' : ''}>Discover</NavLink></li>
+            <li><NavLink to="/products" className={({ isActive }) => isActive ? 'active-link' : ''}>Products</NavLink></li>
+            <li><NavLink to="/profile" className={({ isActive }) => isActive ? 'active-link' : ''}>Profile</NavLink></li>
+            <li><NavLink to="/settings" className={({ isActive }) => isActive ? 'active-link' : ''}>Settings</NavLink></li>
         </ul>
 
         <div className='search-box'>

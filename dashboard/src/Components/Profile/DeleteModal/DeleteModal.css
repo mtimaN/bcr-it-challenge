@@ -1,0 +1,67 @@
+.delete-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+  }
+  
+  .delete-modal-container {
+    background: white;
+    padding: 2vw;
+    border-radius: 10px;
+    width: 30vw;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.2s ease-in;
+    text-align: center;
+  }
+
+  .delete-modal-buttons {
+    margin-top: 2vw;
+    display: flex;
+    justify-content: space-around;
+  }
+  
+  .delete-modal-buttons button {
+    padding: 0.5vw 1.5vw;
+    font-size: 1vw;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .delete-modal-buttons .delete-modal-confirm {
+    background-color: #ff4d4f;
+    color: rgb(255, 255, 255);
+  }
+  
+  .delete-modal-buttons .delete-modal-cancel {
+    background-color: #ccc;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .delete-modal-title {
+    font-family: 'Open Sans', sans-serif; /* Change this to customize */
+    font-size: 2vw;                       /* Adjust size */
+    font-weight: bold;
+    margin-bottom: vw;
+  }
+  
+  .delete-modal-body {
+    font-family: 'Open Sans', sans-serif; /* Change this to customize */
+    font-size: 1vw;                       /* Adjust size */
+    margin-bottom: 2vw;
+  }
+  
