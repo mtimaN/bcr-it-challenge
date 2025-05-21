@@ -1,32 +1,61 @@
 .ads-manager {
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  display: flex;
-  padding: 1rem;
+  overflow: hidden;
+  width: 100%;
 }
 
 .ads-container {
   display: flex;
   gap: 1rem;
-  overflow-x: auto;
-  padding: 1rem;
+  animation: scrollLeft 20s linear infinite;
+  width: max-content;
 }
 
+@keyframes scrollLeft {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-25%);
+  }
+}
+
+
 .ad-card {
-  min-width: 250px;
+  min-width: 40vw;
+  max-width: 45vw;
+  height: auto;
+  aspect-ratio: 16 / 9;
   flex-shrink: 0;
   scroll-snap-align: start;
   background: #f1f1f1;
-  border-radius: 12px;
+  border-radius: 1rem;
   padding: 1rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.ad-card h3 {
+  font-size: 2rem;     /* titlul - ~22px */
+  font-weight: bold;
+  margin: 0.5rem 0 0.25rem 0;
+  text-align: center;
+  color: #222;
+}
+
+.ad-card p {
+  font-size: 1.8rem;     /* descrierea - ~17.5px */
+  text-align: center;
+  margin: 0;
+  color: #444;
 }
 
 .ad-image {
   width: 100%;
-  height: 150px;
+  height: 500px;
   object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 0.5rem;
-  background-color: lightblue; /* test vizual */
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
 }
