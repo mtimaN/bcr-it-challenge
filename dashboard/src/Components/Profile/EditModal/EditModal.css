@@ -1,0 +1,91 @@
+.edit-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+  }
+  
+  .edit-modal-container {
+    background: white;
+    padding: 2vw;
+    border-radius: 10px;
+    width: 30vw;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.2s ease-in;
+    text-align: center;
+  }
+  
+  .edit-modal-buttons {
+    margin-top: 2vw;
+    display: flex;
+    justify-content: space-around;
+  }
+  
+  .edit-modal-buttons button {
+    padding: 0.5vw 1.5vw;
+    font-size: 1vw;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .edit-modal-buttons .confirm {
+    background-color: #ccc;
+    color: rgb(0, 0, 0);
+  }
+  
+  .edit-modal-buttons .cancel {
+    background-color: #ccc;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .edit-modal-title {
+    font-family: 'Open Sans', sans-serif; /* Change this to customize */
+    font-size: 2vw;                       /* Adjust size */
+    font-weight: bold;
+
+  }
+  
+  .edit-modal-body {
+    font-family: 'Open Sans', sans-serif; /* Change this to customize */
+    font-size: 1vw;                       /* Adjust size */
+    margin-bottom: 2vw;
+  }
+
+  .edit-modal-input {
+    width: 100%;
+    padding: 0.75vw 1vw;
+    margin: 1vw 0;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-size: 1vw;
+    font-family: 'Open Sans', sans-serif;
+    outline: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    transition: border 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .edit-modal-input:focus {
+    border: 1px solid #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+  }
+
+  .edit-modal-error {
+    color: red;
+    font-size: 0.85vw;
+    margin-top: 0.5vw;
+    font-weight: bold;
+  }

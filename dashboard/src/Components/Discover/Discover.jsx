@@ -3,7 +3,7 @@ import AdsManager from './AdsManager/AdsManager';
 import './Discover.css'
 
 const Discover = () => {
-  const userCluster = 1;
+  const userCluster = 0;
 
   return (
     <div>

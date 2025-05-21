@@ -1,0 +1,48 @@
+/* src/Components/Profile/Profile.css */
+
+.profile-container {
+    padding: 40px;
+    text-align: center;
+}
+
+.profile-container h1 {
+font-size: 2rem;
+margin-bottom: 20px;
+}
+
+.profile-container p {
+font-size: 1.2rem;
+color: #666;
+}
+
+.profile-image {
+width: 150px;
+margin-top: 20px;
+border-radius: 50%;
+/* z-index: 2; */
+position: relative;
+}
+
+.profile-icon {
+    position: relative; /* establishes a positioning context */
+}
+
+.profile-icon img {
+    position: relative;
+    top: 50px;     /* move down 50px */
+    left: 100px;   /* move right 100px */
+    width: 150px;  /* or whatever size you want */
+}
+
+/* .square {
+width: 10vw;            /* Make it a square */
+height: 10vw;
+background-color: white;   /* Color it red */
+margin: 20px auto;       /* Center horizontally */
+border: 2px solid black; /* Optional border */
+border-radius: 8px;      /* Optional rounded corners */
+position: relative;
+top: -150px;
+left: -750px;
+/* z-index: 1; */
+} */
