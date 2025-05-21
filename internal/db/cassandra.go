@@ -89,8 +89,7 @@ func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, 
 		}
 		return nil, errors.New("internal: database error")
 	}
-
-	user.Password = cred.Password
+	
 	return user, nil
 }
 
@@ -129,7 +128,7 @@ func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
 func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User) error {
 	if err := c.session.Query(
 		"UPDATE users SET password = ?, email = ?, category = ? WHERE username = ?",
-		user.password, user.email, user.category, user.Username).WithContext(ctx).Exec(); err != nil {
+		user.Password, user.Email, user.Category, user.Username).WithContext(ctx).Exec(); err != nil {
 		return errors.New("update failed")
 	}
 

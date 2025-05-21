@@ -120,15 +120,18 @@ func (p Payload) credentials() *db.Credentials {
 	}
 }
 
-func (p Payload) user() *db.User {
+func (p Payload) userData(skipCred bool) *db.User {
 	email, ok := p["email"].(string)
 	if !ok {
 		email = ""
 	}
 
-	cred := p.credentials()
-	if cred == nil {
-		return nil
+	cred := &db.Credentials{}
+	if !skipCred {
+		cred = p.credentials()
+		if cred == nil {
+			return nil
+		}
 	}
 
 	category, ok := p["category"].(int)
@@ -141,6 +144,10 @@ func (p Payload) user() *db.User {
 		Email:       email,
 		Category:    category,
 	}
+}
+
+func (p Payload) user() *db.User {
+	return p.userData(false)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -165,12 +172,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			http.Error(w, "login: "+err.Error(), http.StatusUnauthorized)
-		} else if strings.Contains(err.Error(), "internal") {
+		} else {
 			fmt.Println(err)
 			http.Error(w, "Could not log in", http.StatusInternalServerError)
-		} else {
-			fmt.Println("unknown: ", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -202,12 +206,9 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if err := s.register(r.Context(), user); err != nil {
 		if strings.Contains(err.Error(), "validation:") {
 			http.Error(w, "register: "+err.Error(), http.StatusBadRequest)
-		} else if strings.Contains(err.Error(), "internal") {
+		} else {
 			fmt.Println(err)
 			http.Error(w, "Failed to add user", http.StatusInternalServerError)
-		} else {
-			fmt.Println("unknown: ", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -236,38 +237,58 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.cassandra.GetUser(r.Context(), &db.Credentials{Username: claims.Username, Password: ""})
-
 	payload, err := parseJSON(r)
 	if err != nil {
 		http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	new_password, ok := payload["new_password"].(string)
-	hashed_new_password, err := db.HashPassword(new_password)
+	password, ok := payload["password"].(string)
+	if !ok {
+		http.Error(w, "update: invalid password", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := s.cassandra.GetUser(r.Context(), db.NewCredentials(claims.Username, password))
 	if err != nil {
-		http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	
-
-	if ok && hashed_new_password == user.Password {
-		http.Error(w, "New password cannot be the same as the old one", http.StatusBadRequest)
+		fmt.Println(err)
+		http.Error(w, "Failed to update user", http.StatusInternalServerError)
 		return
 	}
 
-	if err := s.cassandra.UpdateUser(r.Context(), user, password); err != nil {
+	if !db.CheckPasswordHash(password, user.Password) {
+		http.Error(w, "unauthorized: incorrect password", http.StatusUnauthorized)
+		return
+	}
+
+	userData := payload.userData(true)
+	userData.Credentials = db.NewCredentials(user.Username, password)
+
+	newPassword, ok := payload["new_password"].(string)
+
+	if ok {
+		userData.Password = newPassword
+		if newPassword == password {
+			http.Error(w, "New password cannot be the same as the old one", http.StatusBadRequest)
+			return
+		}
+	}
+
+	if userData.Email == "" {
+		userData.Email = user.Email
+	}
+	if userData.Category == -1 {
+		userData.Category = user.Category
+	}
+
+	if err := s.cassandra.UpdateUser(r.Context(), db.NewUser(claims.Username, newPassword, user.Email)); err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			http.Error(w, "update: "+err.Error(), http.StatusUnauthorized)
 		} else if strings.Contains(err.Error(), "validation") {
 			http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
-		} else if strings.Contains(err.Error(), "internal") {
+		} else {
 			fmt.Println(err)
 			http.Error(w, "Failed to update user", http.StatusInternalServerError)
-		} else {
-			fmt.Println("unknown: ", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -333,18 +354,13 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.cassandra.DeleteUser(r.Context(), claims.username); err != nil {
-		if strings.Contains(err.Error(), "internal") {
-			fmt.Println(err)
-			http.Error(w, "Failed to delete user", http.StatusInternalServerError)
-		} else {
-			fmt.Println("unknown: ", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
-		}
+	if err := s.cassandra.DeleteUser(r.Context(), claims.Username); err != nil {
+		fmt.Println(err)
+		http.Error(w, "Failed to delete user", http.StatusInternalServerError)
 		return
 	}
 
-	s.redis.Delete(r.Context(), username)
+	s.redis.Delete(r.Context(), claims.Username)
 	w.Write([]byte("User deleted successfully"))
 }
 

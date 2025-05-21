@@ -2,11 +2,11 @@ module internal
 
 go 1.23.9
 
-replace db => ./database
-
 require (
-	db v0.0.0-00010101000000-000000000000
+	github.com/go-redis/redis/v8 v8.11.5
+	github.com/gocql/gocql v1.7.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
+	golang.org/x/crypto v0.38.0
 )
 
 require (
