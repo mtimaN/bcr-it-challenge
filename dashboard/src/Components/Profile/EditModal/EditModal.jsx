@@ -7,11 +7,11 @@ const EditModal = ({ onClose, onConfirm }) => {
 
   const handleSubmit = () => {
     if (password.trim() === '') {
-      setError('Please enter a password.');
+      setError('Vă rugăm introduceți o parolă.');
     } else {
       const success = onConfirm(password); // get success/failure
       if (success === false) {
-        setError('Wrong password. Please try again.');
+        setError('Parolă greșită. Vă rugăm încercați din nou.');
         setPassword('');
       }
     }

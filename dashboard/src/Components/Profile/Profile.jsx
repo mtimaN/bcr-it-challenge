@@ -151,7 +151,7 @@ const Profile = ({ theme, setTheme }) => {
                 className="save-button"
                 onClick={() => setEditMode(false)}
               >
-                Save Changes
+                Salvare
               </button>
             )}
 
@@ -254,7 +254,7 @@ const Profile = ({ theme, setTheme }) => {
               )}
               {editMode && isGenderOpen && (
                 <ul className="dropdown-menu">
-                  {['Male', 'Female', 'Undisclosed'].map(option => (
+                  {['Bărbat', 'Femeie', 'Nespecificat'].map(option => (
                     <li
                       key={option}
                       className={`dropdown-item ${option.toLowerCase()}`}
@@ -290,7 +290,7 @@ const Profile = ({ theme, setTheme }) => {
               )}
               {editMode && isMarriedOpen && (
                 <ul className="married-dropdown-menu">
-                  {['Yes', 'No'].map(option => (
+                  {['Da', 'Nu'].map(option => (
                     <li
                       key={option}
                       className={`married-dropdown-item ${option.toLowerCase()}`}
@@ -355,7 +355,7 @@ const Profile = ({ theme, setTheme }) => {
           
           <div className="logout-button" onClick={() => setShowLogoutModal(true)}>
             <img src={logoutDay} alt="Logout" className="logout-icon" />
-            <p className="logout-title">Ieși din cont</p>
+            <p className="logout-title">Ieșire din cont</p>
           </div>
 
           <div className="settings-button">

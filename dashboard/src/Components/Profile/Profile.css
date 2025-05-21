@@ -404,13 +404,13 @@
     font-weight: 600;
   }
 
-  .dropdown-item.male {
+  .dropdown-item.bărbat {
     position: relative;
-    left: -7.15vw;
+    left: -6vw;
     font-family: 'Open Sans', sans-serif;
   }
 
-  .dropdown-item.female {
+  .dropdown-item.femeie {
     position: relative;
     left: -15.32vw;
     top: 1vw;
@@ -418,7 +418,7 @@
 
 
   }
-  .dropdown-item.undisclosed {
+  .dropdown-item.nespecificat {
     position: relative;
     left: -7.55vw;
     top: 0.5vw;
@@ -456,13 +456,13 @@
   }
 
 
-  .married-dropdown-item.yes {
+  .married-dropdown-item.da {
     position: relative;
-    left: -8.05vw;
+    left: -8.52vw;
     font-family: 'Open Sans', sans-serif;
   }
 
-  .married-dropdown-item.no {
+  .married-dropdown-item.nu {
     position: relative;
     left: -18vw;
     top: 1vw;
@@ -719,7 +719,7 @@
   .save-button {
     position: absolute;
     bottom: 0.8vw;
-    right: 54vw;
+    right: 57vw;
   
     padding: 0.8vw 2vw;
     font-size: 1vw;
