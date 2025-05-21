@@ -78,11 +78,6 @@ func (c *CassandraRepo) Health(ctx context.Context) error {
 }
 
 func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, error) {
-	// Basic input validation for username
-	if err := ValidCredentials(cred.Username, cred.Password); err != nil {
-		return nil, fmt.Errorf("get: %w", err)
-	}
-
 	user := &User{}
 	user.Credentials = &Credentials{}
 
@@ -93,10 +88,6 @@ func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, 
 			return nil, errors.New("not found: user not found")
 		}
 		return nil, errors.New("internal: database error")
-	}
-
-	if !CheckPasswordHash(cred.Password, user.Password) {
-		return nil, errors.New("validation: invalid password")
 	}
 
 	user.Password = cred.Password

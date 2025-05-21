@@ -145,10 +145,6 @@ func (c *RedisRepo) Get(ctx context.Context, cred *Credentials) (*User, error) {
 		return nil, fmt.Errorf("internal: %w", err)
 	}
 
-	if !CheckPasswordHash(cred.Password, user.Password) {
-		return nil, errors.New("unauthorized: incorrect password")
-	}
-
 	user.Password = cred.Password
 	return &user, nil
 }

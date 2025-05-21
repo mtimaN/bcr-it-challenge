@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS cass_keyspace.users (
 To start in background:
 
 ```bash
-cd $proj_root/internal/ && go run main.go
+cd $proj_root/internal/ && go run .
 ```
 
 In order for the server to run, you must have valid openssl certificates in *$proj_root/certs*. To create them, use this command:
