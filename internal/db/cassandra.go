@@ -126,36 +126,10 @@ func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User, oldPassword string) error {
-	if err := ValidUser(user); err != nil {
-		return fmt.Errorf("validation: %w", err)
-	}
-
-	// Validate password
-	old, err := c.GetUser(ctx, NewCredentials(user.Username, oldPassword))
-	if err != nil {
-		return err
-	}
-
-	email := user.Email
-	if email == "" {
-		email = old.Email
-	}
-
-	category := user.Category
-	if category < 0 || category > 3 {
-		category = old.Category
-	}
-
-	// Hash new password
-	hashedPassword, err := HashPassword(user.Password)
-	if err != nil {
-		return errors.New("internal: password processing failed")
-	}
-
+func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User) error {
 	if err := c.session.Query(
 		"UPDATE users SET password = ?, email = ?, category = ? WHERE username = ?",
-		hashedPassword, email, category, user.Username).WithContext(ctx).Exec(); err != nil {
+		user.password, user.email, user.category, user.Username).WithContext(ctx).Exec(); err != nil {
 		return errors.New("update failed")
 	}
 

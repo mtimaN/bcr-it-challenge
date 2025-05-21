@@ -222,24 +222,37 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		http.Error(w, "Missing or invalid Authorization header", http.StatusUnauthorized)
+		return
+	}
+
+	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+
+	claims, err := s.jwtmanager.ValidateToken(tokenStr)
+	if err != nil {
+		http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := s.cassandra.GetUser(r.Context(), &db.Credentials{Username: claims.Username, Password: ""})
+
 	payload, err := parseJSON(r)
 	if err != nil {
 		http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	user := payload.user()
-	if user == nil {
-		http.Error(w, "update: invalid request", http.StatusBadRequest)
+	new_password, ok := payload["new_password"].(string)
+	hashed_new_password, err := db.HashPassword(new_password)
+	if err != nil {
+		http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	
 
-	password, ok := payload["old_password"].(string)
-	if !ok {
-		password = user.Password
-	}
-
-	if ok && password == user.Password {
+	if ok && hashed_new_password == user.Password {
 		http.Error(w, "New password cannot be the same as the old one", http.StatusBadRequest)
 		return
 	}
@@ -283,7 +296,6 @@ func (s *Server) handleGetAdsCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Use claims info (e.g., claims.Username)
 	log.Printf("Authenticated user: %s", claims.Username)
 
 	user, err := s.cassandra.GetUser(r.Context(), &db.Credentials{Username: claims.Username, Password: ""})
@@ -307,19 +319,21 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload, err := parseJSON(r)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		http.Error(w, "Missing or invalid Authorization header", http.StatusUnauthorized)
+		return
+	}
+
+	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+
+	claims, err := s.jwtmanager.ValidateToken(tokenStr)
 	if err != nil {
-		http.Error(w, "delete: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 		return
 	}
 
-	username, ok := payload["username"].(string)
-	if !ok {
-		http.Error(w, "delete: invalid request", http.StatusBadRequest)
-		return
-	}
-
-	if err := s.cassandra.DeleteUser(r.Context(), username); err != nil {
+	if err := s.cassandra.DeleteUser(r.Context(), claims.username); err != nil {
 		if strings.Contains(err.Error(), "internal") {
 			fmt.Println(err)
 			http.Error(w, "Failed to delete user", http.StatusInternalServerError)
