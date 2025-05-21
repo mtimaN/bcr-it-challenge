@@ -66,7 +66,7 @@ func NewCassandraRepo(config *CassandraConfig) (*CassandraRepo, error) {
 
 func (c *CassandraRepo) Health(ctx context.Context) error {
 	if c.session == nil {
-		return errors.New("session: session is nil")
+		return errors.New("session: cassandra not initialized")
 	}
 
 	var test string
@@ -77,23 +77,29 @@ func (c *CassandraRepo) Health(ctx context.Context) error {
 	return nil
 }
 
-func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, error) {
+func (c *CassandraRepo) GetUser(ctx context.Context, username string) (*User, error) {
+	if c.session == nil {
+		return nil, errors.New("internal: cassandra cassandra not initialized")
+	}
 	user := &User{}
 	user.Credentials = &Credentials{}
 
 	if err := c.session.Query(
 		"SELECT username, password, email, category FROM users WHERE username = ? LIMIT 1",
-		cred.Username).WithContext(ctx).Scan(&user.Username, &user.Password, &user.Email, &user.Category); err != nil {
+		username).WithContext(ctx).Scan(&user.Username, &user.Password, &user.Email, &user.Category); err != nil {
 		if err == gocql.ErrNotFound {
 			return nil, errors.New("not found: user not found")
 		}
 		return nil, errors.New("internal: database error")
 	}
-	
+
 	return user, nil
 }
 
 func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
+	if c.session == nil {
+		return errors.New("internal: cassandra cassandra not initialized")
+	}
 	if user.Email == "" {
 		return fmt.Errorf("validation: invalid email")
 	}
@@ -126,6 +132,9 @@ func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
 }
 
 func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User) error {
+	if c.session == nil {
+		return errors.New("internal: cassandra cassandra not initialized")
+	}
 	if err := c.session.Query(
 		"UPDATE users SET password = ?, email = ?, category = ? WHERE username = ?",
 		user.Password, user.Email, user.Category, user.Username).WithContext(ctx).Exec(); err != nil {
@@ -136,6 +145,10 @@ func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User) error {
 }
 
 func (c *CassandraRepo) DeleteUser(ctx context.Context, username string) error {
+	if c.session == nil {
+		return errors.New("internal: cassandra cassandra not initialized")
+	}
+
 	ok, err := c.UsernameExists(ctx, username)
 	if err != nil {
 		return err
@@ -155,6 +168,9 @@ func (c *CassandraRepo) DeleteUser(ctx context.Context, username string) error {
 
 // Method to check if username exists (for registration)
 func (c *CassandraRepo) UsernameExists(ctx context.Context, username string) (bool, error) {
+	if c.session == nil {
+		return false, errors.New("internal: cassandra cassandra not initialized")
+	}
 	if len(username) < MinUsernameLength {
 		return false, errors.New("validation: username required")
 	}
@@ -177,6 +193,9 @@ func (c *CassandraRepo) UsernameExists(ctx context.Context, username string) (bo
 
 // Attempts to retrieve stats from system.stats table
 func (c *CassandraRepo) Stats(ctx context.Context) (map[string]interface{}, error) {
+	if c.session == nil {
+		return nil, errors.New("internal: cassandra cassandra not initialized")
+	}
 	var tableName string
 	var sstables int
 	var readLatency float64

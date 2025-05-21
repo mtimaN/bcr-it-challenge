@@ -85,7 +85,7 @@ func NewRedisRepo(config *RedisConfig) (*RedisRepo, error) {
 // Health checks the Redis connection health
 func (c *RedisRepo) Health(ctx context.Context) error {
 	if c.client == nil {
-		return errors.New("session: redis client is nil")
+		return errors.New("internal: redis client is nil")
 	}
 
 	if _, err := c.client.Ping(ctx).Result(); err != nil {
@@ -120,12 +120,12 @@ func (c *RedisRepo) createKey(username string) (string, error) {
 }
 
 // Get retrieves a user from cache
-func (c *RedisRepo) Get(ctx context.Context, cred *Credentials) (*User, error) {
+func (c *RedisRepo) Get(ctx context.Context, username string) (*User, error) {
 	if c.client == nil {
-		return nil, errors.New("session: redis client is not initialized")
+		return nil, errors.New("internal: redis client is not initialized")
 	}
 
-	key, err := c.createKey(cred.Username)
+	key, err := c.createKey(username)
 	if err != nil {
 		return nil, fmt.Errorf("internal: %w", err)
 	}
@@ -145,14 +145,33 @@ func (c *RedisRepo) Get(ctx context.Context, cred *Credentials) (*User, error) {
 		return nil, fmt.Errorf("internal: %w", err)
 	}
 
-	user.Password = cred.Password
 	return &user, nil
+}
+
+func (c *RedisRepo) Extend(ctx context.Context, username string) error {
+	if c.client == nil {
+		return errors.New("internal: redis client is not initialized")
+	}
+
+	key, err := c.createKey(username)
+	if err != nil {
+		return fmt.Errorf("internal: %w", err)
+	}
+
+	success, err := c.client.Expire(ctx, key, c.config.Expiration).Result()
+	if err != nil {
+		return err
+	}
+	if !success {
+		return fmt.Errorf("internal: redis: extend failed")
+	}
+	return nil
 }
 
 // Add stores a user in cache
 func (c *RedisRepo) Add(ctx context.Context, user *User) error {
 	if c.client == nil {
-		return errors.New("session: redis client is not initialized")
+		return errors.New("internal: redis client is not initialized")
 	}
 	if user == nil {
 		return errors.New("validation: user cannot be nil")
@@ -192,7 +211,7 @@ func (c *RedisRepo) Add(ctx context.Context, user *User) error {
 // Delete removes a user from cache
 func (c *RedisRepo) Delete(ctx context.Context, username string) error {
 	if c.client == nil {
-		return errors.New("session: redis client is not initialized")
+		return errors.New("internal: redis client is not initialized")
 	}
 
 	key, err := c.createKey(username)
@@ -215,7 +234,7 @@ func (c *RedisRepo) Delete(ctx context.Context, username string) error {
 // Exists checks if a user exists in cache without retrieving the full data
 func (c *RedisRepo) Exists(ctx context.Context, username string) (bool, error) {
 	if c.client == nil {
-		return false, errors.New("session: redis client is not initialized")
+		return false, errors.New("internal: redis client is not initialized")
 	}
 
 	key, err := c.createKey(username)
@@ -242,7 +261,7 @@ func (c *RedisRepo) Close() error {
 // Stats returns basic Redis statistics
 func (c *RedisRepo) Stats(ctx context.Context) (map[string]interface{}, error) {
 	if c.client == nil {
-		return nil, errors.New("session: redis client is not initialized")
+		return nil, errors.New("internal: redis client is not initialized")
 	}
 
 	poolStats := c.client.PoolStats()
