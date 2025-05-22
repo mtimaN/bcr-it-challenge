@@ -147,6 +147,14 @@ func (s *Server) register(ctx context.Context, user *db.User) error {
 		return fmt.Errorf("internal: %w", err)
 	}
 
+	if user.Email == "" {
+		return errors.New("validation: invalid email")
+	}
+
+	if err := db.ValidUser(user); err != nil {
+		return fmt.Errorf("validation: %w", err)
+	}
+
 	user.Password = hashedPassword
 	if err := s.userRepo.AddUser(ctx, user); err != nil {
 		return err
