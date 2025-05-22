@@ -3,9 +3,8 @@ import {
   } from 'recharts';
   import './SpentChart.css';
   
-  const SpentChart = ({ theme }) => {
-    const isDark = theme === 'dark';
-  
+  const SpentChart = ({ theme, lang }) => {
+
     const rawTransactions = [
         { day: 1, spending: 50 },
         { day: 2, spending: 0 },
@@ -28,7 +27,6 @@ import {
 
 
     function getCumulativeCheckpoints(data) {
-        // Sort by day just in case
         const sortedData = [...data].sort((a, b) => a.day - b.day);
       
         let total = 0;
@@ -54,9 +52,9 @@ import {
   
     return (
       <>
-        <div className={`chart-container ${isDark ? 'dark' : ''}`}>
-            <h3 className={`chart-title ${isDark ? 'dark' : ''}`}>
-                Luna asta
+        <div className={`chart-container ${theme === 'dark' ? 'dark' : ''}`}>
+            <h3 className={`chart-title ${theme === 'dark' ? 'dark' : ''}`}>
+              {lang === 'RO' ? 'Cheltuieli luna aceasta': 'Spent this month'}
             </h3>
           <div className="chart-inner-wrapper">
           <ResponsiveContainer width="100%" height="100%">
@@ -73,7 +71,7 @@ import {
                         x={x}
                         y={y + 20}
                         textAnchor="middle"
-                        className={`axis-tick ${isDark ? 'dark' : ''}`}
+                        className={`axis-tick ${theme === 'dark' ? 'dark' : ''}`}
                         >
                         {payload.value}
                         </text>
@@ -86,7 +84,7 @@ import {
                         x={x - 10}
                         y={y + 4}
                         textAnchor="end"
-                        className={`axis-tick ${isDark ? 'dark' : ''}`}
+                        className={`axis-tick ${theme === 'dark' ? 'dark' : ''}`}
                         >
                         {formatBalance(payload.value)}
                         </text>
@@ -94,16 +92,16 @@ import {
                 />
 
                 <Tooltip
-                    wrapperClassName={`tooltip-wrapper ${isDark ? 'dark' : ''}`}
+                    wrapperClassName={`tooltip-wrapper ${theme === 'dark' ? 'dark' : ''}`}
                     contentClassName="tooltip-content"
                     labelClassName="tooltip-label"
                     itemClassName="tooltip-item"
-                    formatter={(value) => [`${formatBalance(value)} RON`, 'Cheltuit']}
+                    formatter={(value) => [`${formatBalance(value)} RON`, lang === 'RO' ? 'Total cheltuit': 'Total spent']} 
                 />
 
                 <Line
-                    type="linear"               // spiky line
-                    dataKey="total"          // plot raw spending
+                    type="linear"
+                    dataKey="total"
                     className="spending-line"
                     strokeWidth={2}
                     dot

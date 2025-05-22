@@ -11,11 +11,7 @@ import React, { useState } from 'react';
 
 import './Balance.css'
 
-const Balance = ({ theme, setTheme }) => {
-
-    const toggle_mode = () => {
-        theme === 'light' ? setTheme('dark') : setTheme('light');
-    };
+const Balance = ({ theme, lang }) => {
 
     const formatBalance = (amount) => {
         const [int, decimal] = amount
@@ -29,27 +25,29 @@ const Balance = ({ theme, setTheme }) => {
 
     const { intPart, decimalPart } = formatBalance(2578.31);
 
-    const [isVisible, setIsVisible] = useState(true);
+    const [isVisible, setIsVisible] = useState(false);
   
     return (
-      <div className="account-balance">
+      <div className={`account-balance ${theme === 'dark' ? 'dark' : ''}`}>
 
-        <p className="account-balance-title">Fonduri curente</p>
+        <p className={`account-balance-title ${lang === 'RO' ? 'title-ro' : 'title-en'} ${theme === 'dark' ? 'dark' : ''}`}>
+          {lang === 'RO' ? 'Fonduri curente' : 'Current funds'}
+        </p>
 
-        <div className={`account-balance-wrapper ${!isVisible ? 'blurred' : ''}`}>
+        <div className={`account-balance-wrapper ${!isVisible ? 'blurred' : ''} ${theme === 'dark' ? 'dark' : ''}`}>
           <span className="account-balance-funds">{intPart},</span>
           <span className="account-balance-decimals">{decimalPart}</span>
           <span className="account-balance-currency">RON</span>
         </div>
 
         <img
-          src={moneyBagDay}
+          src={(theme === 'dark' ? moneyBagNight : moneyBagDay)}
           alt=""
           className="money-bag"
         />
 
         <img
-          src={isVisible ? hiddenEyeDay : eyeDay}
+          src={isVisible ? (theme === 'dark' ? hiddenEyeNight : hiddenEyeDay) : (theme === 'dark' ? eyeNight : eyeDay)}
           alt="toggle visibility"
           className="eye"
           onClick={() => setIsVisible(!isVisible)}

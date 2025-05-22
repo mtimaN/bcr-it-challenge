@@ -92,6 +92,8 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
         />
       </div>
 
+      <p className="login-title">GEORG.IO</p>
+
       {/* Auth box */}
       <div className="auth-box">
         <input

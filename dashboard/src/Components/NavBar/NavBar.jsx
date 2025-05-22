@@ -31,9 +31,9 @@ const NavBar = ({ theme, setTheme, lang, setLang }) => {
       <img src={bcrLogo} alt="BCR Logo" className='logo' />
 
       <ul>
-        <li><NavLink to="/home" className={({ isActive }) => isActive ? 'active-link' : ''}>Acasă</NavLink></li>
-        <li><NavLink to="/discover" className={({ isActive }) => isActive ? 'active-link' : ''}>Descoperă</NavLink></li>
-        <li><NavLink to="/profile" className={({ isActive }) => isActive ? 'active-link' : ''}>Profilul tău</NavLink></li>
+        <li><NavLink to="/home" className={({ isActive }) => isActive ? 'active-link' : ''}>{lang === 'RO' ? 'Acasă': 'Home'}</NavLink></li>
+        <li><NavLink to="/discover" className={({ isActive }) => isActive ? 'active-link' : ''}>{lang === 'RO' ? 'Descoperă': 'Discover'}</NavLink></li>
+        <li><NavLink to="/profile" className={({ isActive }) => isActive ? 'active-link' : ''}>{lang === 'RO' ? 'Profilul tău': 'Your profile'}</NavLink></li>
       </ul>
 
       <div className='right-icons'>

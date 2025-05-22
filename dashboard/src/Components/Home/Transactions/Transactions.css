@@ -22,7 +22,6 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    font-family: 'DM Sans', sans-serif;
     font-size: 0.9vw;
     padding-left: 1vw;
     padding-bottom: 0.2vw;
@@ -65,7 +64,7 @@
     height: 2px;          /* Thickness of the line */
     background-color: #ccc;
     margin-top: 0.3vw;
-    margin-left: 0%;    /* Shift it left to center */
+    margin-left: 0%;      /* Shift it left to center */
 }
   
 .transaction-funds.negative {
@@ -103,5 +102,53 @@
   
     /* Optional scrollbar styling (Webkit browsers only) */
     scrollbar-width: thin;
+  }
+
+/* Container background & border for dark mode */
+.account-transactions.dark {
+    background-color: #1a1a1a;
+    border-color: #333;
+  }
+  
+  /* Transaction text and border lines in dark mode */
+  .account-transactions.dark .transaction-title {
+    color: #f0f0f0;
+  }
+  
+  .account-transactions.dark .transaction-date,
+  .account-transactions.dark .transaction-description {
+    color: #aaa;
+  }
+  
+  .account-transactions.dark .transaction-description::after {
+    background-color: #555;
+  }
+  
+  /* Scroll area scrollbar dark styling (optional) */
+  .account-transactions.dark .transaction-scroll-area::-webkit-scrollbar {
+    width: 6px;
+  }
+  .account-transactions.dark .transaction-scroll-area::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 3px;
+  }
+  .account-transactions.dark .transaction-scroll-area::-webkit-scrollbar-track {
+    background-color: #2a2a2a;
+  }
+
+  .account-transactions.dark .transaction-funds.positive {
+    color: #a6f5a6;
+  }
+  
+  .account-transactions.dark .transaction-funds.negative {
+    color: #ff7a7a;
+  }
+  
+  .account-transactions.dark .transaction-currency.positive {
+    color: #a6f5a6;
+  }
+  
+  .account-transactions.dark .transaction-currency.negative {
+    color: #ff7a7a;
   }
   

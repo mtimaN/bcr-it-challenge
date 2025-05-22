@@ -3,23 +3,18 @@ import Transactions from './Transactions/Transactions'
 import SpendingVisual from './SpendingVisual/SpendingVisual';
 import SpentChart from './SpentChart/SpentChart'
 
-import React, { useState } from 'react';
+import React from 'react';
 
 import './Home.css'
 
-const Home = ({ theme, setTheme }) => {
-
-  /* change theme logic */
-  const toggle_mode = () => {
-    theme === 'light' ? setTheme('dark') : setTheme('light');
-  };
+const Home = ({ theme, lang }) => {
 
   return (
     <div className="home-container">
-      <Balance theme={theme} setTheme={setTheme}/>
-      <Transactions theme={theme} setTheme={setTheme}/>
-      <SpendingVisual theme={theme} setTheme={setTheme}/>
-      <SpentChart theme={theme} setTheme={setTheme}/>
+      <Balance theme={theme} lang={lang}/>
+      <Transactions theme={theme} lang={lang}/>
+      <SpendingVisual theme={theme} lang={lang}/>
+      <SpentChart theme={theme} lang={lang}/>
     </div>
   )
 }

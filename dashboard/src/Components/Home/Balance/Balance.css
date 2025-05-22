@@ -17,8 +17,9 @@
 .account-balance-title {
     position: absolute;
 
-    font-family: 'DM Sans', sans-serif;
     font-size: 2vw;
+
+    font-weight: bold;
 
     margin-left: 5%;
     margin-top: 2%;
@@ -26,7 +27,11 @@
     display: inline-block;
 }
 
-.account-balance-title::after {
+/* Specific styles for Romanian */
+.title-ro {
+}
+
+.title-ro::after {
     content: "";
     display: block;
     width: 150%;       /* wider than text */
@@ -36,11 +41,35 @@
     margin-left: -20%; /* shifts the line to the left */
 }
 
-.account-balance-title::before {
+.title-ro::before {
     content: "";
     position: absolute;
     top: -0.5vw;
-    right: -1.2vw;          /* space from the text */
+    right: -0.9vw;          /* space from the text */
+    width: 3px;
+    height: 116.5%;           /* match text height */
+    background-color: #ccc;
+}
+
+/* Specific styles for English */
+.title-en {
+}
+
+.title-en::after {
+    content: "";
+    display: block;
+    width: 200%;       /* wider than text */
+    height: 3px;
+    background-color: #ccc;
+    margin-top: 0.3vw;
+    margin-left: -20%; /* shifts the line to the left */
+}
+
+.title-en::before {
+    content: "";
+    position: absolute;
+    top: -0.5vw;
+    right: -2.9vw;          /* space from the text */
     width: 3px;
     height: 116.5%;           /* match text height */
     background-color: #ccc;
@@ -54,7 +83,6 @@
     display: flex;
     align-items: flex-start;
 
-    font-family: 'DM Sans', sans-serif;
     font-size: 2vw;
 
     font-weight: 600;
@@ -91,7 +119,7 @@
 .eye {
     position: absolute;
     top: 9%;
-    left: 88.6%;
+    left: 89.2%;
 
     width: 1.5vw;
     height: auto;
@@ -102,4 +130,33 @@
 .blurred {
     filter: blur(10px);
     pointer-events: none; /* disables interaction */
+  }
+
+/* DARK MODE CONTAINER */
+.account-balance.dark {
+    background-color: #1a1a1a;
+    border-color: #333;
+  }
+  
+  /* DARK MODE TITLE */
+  .account-balance-title.dark {
+    color: #ffffff;
+  }
+  
+  /* DARK MODE LINES UNDER TITLE */
+  .title-ro.dark::after,
+  .title-en.dark::after,
+  .title-ro.dark::before,
+  .title-en.dark::before {
+    background-color: #333;
+  }
+  
+  /* DARK MODE AMOUNT TEXT */
+  .account-balance-wrapper.dark {
+    color: #a6f5a6; /* lighter green or suitable accent for dark bg */
+  }
+  
+  /* Optional: dark version of currency style */
+  .account-balance-currency.dark {
+    color: #a6f5a6;
   }
