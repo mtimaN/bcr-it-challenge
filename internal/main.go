@@ -39,8 +39,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	token, err := s.login(r.Context(), cred)
 	if err != nil {
 		log.Printf("login: %v", err)
-		if strings.Contains(err.Error(), "unauthorized") {
-			JSONError(w, "Unauthorized"+err.Error(), http.StatusUnauthorized)
+		if strings.Contains("login: "+err.Error(), "unauthorized") {
+			JSONError(w, err.Error(), http.StatusUnauthorized)
 		} else {
 			JSONError(w, "Internal server error", http.StatusInternalServerError)
 		}
@@ -72,7 +72,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if err := s.register(r.Context(), user); err != nil {
 		log.Printf("register: %v", err)
 		if strings.Contains(err.Error(), "validation:") {
-			JSONError(w, "Bad request"+err.Error(), http.StatusBadRequest)
+			JSONError(w, "Bad request: "+err.Error(), http.StatusBadRequest)
 		} else {
 			JSONError(w, "Internal server error", http.StatusInternalServerError)
 		}
@@ -147,7 +147,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err := s.userRepo.UpdateUser(r.Context(), updatedUser); err != nil {
 		log.Printf("Update user error: %v", err)
 		if strings.Contains(err.Error(), "unauthorized") {
-			JSONError(w, "Unauthorized", http.StatusUnauthorized)
+			JSONError(w, "update: "+err.Error(), http.StatusUnauthorized)
 		} else if strings.Contains(err.Error(), "validation") {
 			JSONError(w, "Bad request", http.StatusBadRequest)
 		} else {

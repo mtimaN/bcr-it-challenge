@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"internal/db"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -99,16 +98,6 @@ func (s *Server) loginCheck(ctx context.Context, cred *db.Credentials) (*db.User
 		return nil, err
 	}
 	if !db.CheckPasswordHash(cred.Password, user.Password) {
-		log.Println(cred.Password)
-		h, err := db.HashPassword(cred.Password)
-		if err != nil {
-			panic(err)
-		}
-		hh, err := db.HashPassword(h)
-		if err != nil {
-			panic(err)
-		}
-		log.Printf("hash: %s, rehash: %s; stored: %s", h, hh, user.Password)
 		return nil, errors.New("unauthorized: incorrect password")
 	}
 
