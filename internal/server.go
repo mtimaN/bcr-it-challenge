@@ -81,7 +81,7 @@ func (s *Server) rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		clientIP := s.getClientIP(r)
 
 		if !s.rateLimiter.Allow(clientIP) {
-			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+			JSONError(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
 
