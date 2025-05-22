@@ -1,0 +1,15 @@
+.discover-title,
+.discover-subtitle {
+  margin-left: 1rem;
+  margin-top: 2rem;     /* spațiu deasupra */
+  margin-bottom: 1rem;  /* spațiu dedesubt */
+  font-size: 3rem;      /* ~32px */
+  font-weight: bold;
+  color: #222;
+  transition: color 0.2s ease;
+}
+
+.container.dark .discover-title,
+.container.dark .discover-subtitle {
+  color: white;
+}
