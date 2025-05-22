@@ -11,8 +11,13 @@ import moon from '../../assets/nav_bar/nightLogo.png';
 
 const Register = ({ lang, setLang }) => {
   const navigate = useNavigate();
-
   const [theme, setTheme] = useState(localStorage.getItem('current_theme') || 'light');
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     const container = document.querySelector('.container');
@@ -21,6 +26,7 @@ const Register = ({ lang, setLang }) => {
     } else {
       container?.classList.remove('dark');
     }
+
     localStorage.setItem('current_theme', theme);
   }, [theme]);
 
@@ -33,16 +39,41 @@ const Register = ({ lang, setLang }) => {
     setLang(lang === 'RO' ? 'EN' : 'RO');
   };
 
-  const handleSubmit = () => {
-    navigate('/'); // back to login
+  const handleSubmit = async () => {
+    try {
+      const response = await fetch('https://localhost:8443/v1/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          full_name: fullName,
+          email: email,
+          username: username,
+          password: password
+        })
+      });
+
+      if (response.ok) {
+        navigate('/');
+
+      } else {
+        const errorData = await response.json();
+        alert('Registration failed: ' + (errorData.message || 'Unknown error'));
+      }
+
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
   };
 
   const getLangIcon = () => {
     if (lang === 'RO') {
       return theme === 'light' ? roD : roL;
-    } else {
-      return theme === 'light' ? enD : enL;
     }
+
+    return theme === 'light' ? enD : enL;
   };
 
   return (
@@ -67,10 +98,30 @@ const Register = ({ lang, setLang }) => {
 
       {/* Register box */}
       <div className="auth-box">
-        <input type="text" placeholder={lang === 'RO' ? 'Nume complet' : 'Full Name'} />
-        <input type="text" placeholder="Email" />
-        <input type="text" placeholder={lang === 'RO' ? 'Utilizator' : 'Username'} />
-        <input type="password" placeholder={lang === 'RO' ? 'Parolă' : 'Password'} />
+        <input
+          type="text"
+          placeholder={lang === 'RO' ? 'Nume complet' : 'Full Name'}
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder={lang === 'RO' ? 'Utilizator' : 'Username'}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder={lang === 'RO' ? 'Parolă' : 'Password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
         <button className="auth-button" onClick={handleSubmit}>
           {lang === 'RO' ? 'Înregistrează-te' : 'Register'}
         </button>

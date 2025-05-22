@@ -11,10 +11,11 @@ import moon from '../../assets/nav_bar/nightLogo.png';
 
 const Login = ({ lang, setLang, setLoggedIn }) => {
   const navigate = useNavigate();
-
   const [theme, setTheme] = useState(localStorage.getItem('current_theme') || 'light');
 
-  // sync theme with DOM class
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
   useEffect(() => {
     const container = document.querySelector('.container');
     if (theme === 'dark') {
@@ -34,9 +35,30 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
     setLang(lang === 'RO' ? 'EN' : 'RO');
   };
 
-  const handleLogin = () => {
-    setLoggedIn(true);
-    navigate('/home');
+  const handleLogin = async () => {
+    try {
+      const response = await fetch('https://localhost:8443/v1/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include', // if backend sets cookies
+        body: JSON.stringify({
+          username: username,
+          password: password
+        })
+      });
+
+      if (response.ok) {
+        setLoggedIn(true);
+        navigate('/home');
+      } else {
+        const errorData = await response.json();
+        alert('Login failed: ' + (errorData.error || 'Invalid credentials'));
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
   };
 
   const getLangIcon = () => {
@@ -69,8 +91,18 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
 
       {/* Auth box */}
       <div className="auth-box">
-        <input type="text" placeholder={lang === 'RO' ? 'Utilizator' : 'Username'} />
-        <input type="password" placeholder={lang === 'RO' ? 'Parolă' : 'Password'} />
+        <input
+          type="text"
+          placeholder={lang === 'RO' ? 'Utilizator' : 'Username'}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder={lang === 'RO' ? 'Parolă' : 'Password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
         <button className="auth-button" onClick={handleLogin}>
           {lang === 'RO' ? 'Autentificare' : 'Login'}
         </button>

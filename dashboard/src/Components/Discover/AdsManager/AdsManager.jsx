@@ -2,14 +2,14 @@ import React from 'react';
 import './AdsManager.css';
 import { adsByCluster } from '../Data';
 
-
 const AdsManager = ({ userCluster }) => {
   const ads = adsByCluster[userCluster] || [];
+  const adsToDisplay = [...ads, ...ads];
 
   return (
     <div className="ads-manager">
       <div className="ads-container">
-        {ads.map((ad, index) => (
+        {adsToDisplay.map((ad, index) => (
           <div key={index} className="ad-card">
             {ad.image && (
               <img
