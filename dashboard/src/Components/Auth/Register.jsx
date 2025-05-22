@@ -9,15 +9,13 @@ import enL from '../../assets/nav_bar/enLight.png';
 import sun from '../../assets/nav_bar/dayLogo.png';
 import moon from '../../assets/nav_bar/nightLogo.png';
 
-const Register = ({ lang, setLang }) => {
+const Register = ({ lang, setLang, setUserData }) => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('current_theme') || 'light');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-
   const [email, setEmail] = useState('');
-
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
@@ -59,14 +57,17 @@ const Register = ({ lang, setLang }) => {
       });
 
       if (response.ok) {
-        navigate('/', {
-          state: {
-            firstName,
-            lastName,
-            email,
-            username
-          }
+        // Store user data in parent component state for later use
+        setUserData({
+          firstName,
+          lastName,
+          email,
+          username,
+          password
         });
+        
+        // Navigate back to login page after successful registration
+        navigate('/');
 
       } else {
         const errorData = await response.json();
