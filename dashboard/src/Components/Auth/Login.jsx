@@ -36,32 +36,35 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
   };
 
   const handleLogin = async () => {
-    setLoggedIn(true);
-    navigate('/home');
+    try {
+      const response = await fetch('https://localhost:8443/v1/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          username: username,
+          password: password
+        })
+      });
 
-    // try {
-    //   const response = await fetch('https://localhost:8443/v1/login', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json'
-    //     },
-    //     credentials: 'include', // if backend sets cookies
-    //     body: JSON.stringify({
-    //       username: username,
-    //       password: password
-    //     })
-    //   });
+      if (response.ok) {
+        const data = await response.json();
+        const token = data.token;
 
-    //   if (response.ok) {
-    //     setLoggedIn(true);
-    //     navigate('/home');
-    //   } else {
-    //     const errorData = await response.json();
-    //     alert('Login failed: ' + (errorData.error || 'Invalid credentials'));
-    //   }
-    // } catch (error) {
-    //   alert('Error: ' + error.message);
-    // }
+        localStorage.setItem('jwtToken', token);
+
+        setLoggedIn(true);
+        navigate('/home');
+
+      } else {
+        const errorData = await response.json();
+        alert('Login failed: ' + (errorData.error || 'Invalid credentials'));
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
   };
 
   const getLangIcon = () => {

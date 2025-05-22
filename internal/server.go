@@ -80,6 +80,7 @@ func (s *Server) rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		clientIP := s.getClientIP(r)
 
 		if !s.rateLimiter.Allow(clientIP) {
+			s.recordRateLimit(clientIP)
 			JSONError(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
@@ -196,7 +197,7 @@ func (p Payload) user() *db.User {
 	return &db.User{
 		Credentials: cred,
 		Email:       p.getString("email"),
-		Category:    2,
+		Category:    db.AntiUserCategory,
 	}
 }
 

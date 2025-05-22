@@ -1,0 +1,9 @@
+# internal/prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'go-backend'
+    scheme: http
+    static_configs:
+      - targets: ['host.docker.internal:8080']

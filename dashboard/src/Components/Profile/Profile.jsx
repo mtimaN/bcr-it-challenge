@@ -33,6 +33,8 @@ import './Profile.css';
 import profileIconDay from '../../assets/profile_page/profileIconDay.png'
 import profileIconNight from '../../assets/profile_page/profileIconNight.png'
 
+import { useLocation } from 'react-router-dom';  //! date de la register 
+
 
 const Profile = ({ theme, setTheme }) => {
   const navigate = useNavigate();
@@ -52,6 +54,15 @@ const Profile = ({ theme, setTheme }) => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // autocomplete fields
+  const location = useLocation();     //! ia astea pune le peste scris
+  const {
+    firstName = '',
+    lastName = '',
+    email = '',
+    username = ''
+  } = location.state || {};
 
   // hande logout logic
   const handleLogout = () => {
@@ -94,13 +105,14 @@ const Profile = ({ theme, setTheme }) => {
   };
 
   // info for each field
-  const [firstName, setFirstName] = useState('Luca');
-  const [lastName, setLastName] = useState('Botez');
-  const [phoneNumber, setPhoneNumber] = useState('+40721628090');
-  const [email, setEmail] = useState('luktechmech@gmail.com');
-  const [county, setCounty] = useState('Bacau');
-  const [address, setAddress] = useState('Str Milcov, 4');
-    
+  const [firstNameState, setFirstName] = useState(firstName);
+  const [lastNameState, setLastName] = useState(lastName);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [emailState, setEmail] = useState(email);
+  const [usernameState] = useState(username);
+  const [county, setCounty] = useState('');
+  const [address, setAddress] = useState('');
+
     /* change theme logic */
     const toggle_mode = () => {
       theme === 'light' ? setTheme('dark') : setTheme('light');
@@ -127,7 +139,7 @@ const Profile = ({ theme, setTheme }) => {
             />
 
             {/* profile username */}
-            <p className="profile-card-username">luktechmech</p>
+            <p className="profile-card-username">{usernameState}</p>
 
             {/* account ID */}
             <p className="profile-card-ID">ID: 30128127</p>
@@ -180,12 +192,12 @@ const Profile = ({ theme, setTheme }) => {
               {editMode ? (
                 <input
                   type="text"
-                  value={firstName}
+                  value={firstNameState}
                   onChange={(e) => setFirstName(e.target.value)}
                   className="search-icon-info editable"
                 />
               ) : (
-                <p className="search-icon-info">{firstName}</p>
+                <p className="search-icon-info">{firstNameState}</p>
               )}
             </div>
             
@@ -195,12 +207,27 @@ const Profile = ({ theme, setTheme }) => {
               {editMode ? (
                 <input
                   type="text"
-                  value={lastName}
+                  value={lastNameState}
                   onChange={(e) => setLastName(e.target.value)}
                   className="search-icon-info editable"
                 />
               ) : (
-                <p className="search-icon-info">{lastName}</p>
+                <p className="search-icon-info">{lastNameState}</p>
+              )}
+            </div>
+
+            {/* email address */}
+            <div className="search-icon-email">
+              <p className="search-icon-text">Adresă de email *</p>
+              {editMode ? (
+                <input
+                  type="text"
+                  value={emailState}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="search-icon-info editable"
+                />
+              ) : (
+                <p className="search-icon-info">{emailState}</p>
               )}
             </div>
 
@@ -216,21 +243,6 @@ const Profile = ({ theme, setTheme }) => {
                 />
               ) : (
                 <p className="search-icon-info">{phoneNumber}</p>
-              )}
-            </div>
-
-            {/* email address */}
-            <div className="search-icon-email">
-              <p className="search-icon-text">Adresă de email *</p>
-              {editMode ? (
-                <input
-                  type="text"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="search-icon-info editable"
-                />
-              ) : (
-                <p className="search-icon-info">{email}</p>
               )}
             </div>
 

@@ -13,7 +13,9 @@ const Register = ({ lang, setLang }) => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('current_theme') || 'light');
 
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  
   const [email, setEmail] = useState('');
 
   const [username, setUsername] = useState('');
@@ -48,7 +50,8 @@ const Register = ({ lang, setLang }) => {
         },
         credentials: 'include',
         body: JSON.stringify({
-          full_name: fullName,
+          first_name: firstName,
+          last_name: lastName,
           email: email,
           username: username,
           password: password
@@ -56,7 +59,14 @@ const Register = ({ lang, setLang }) => {
       });
 
       if (response.ok) {
-        navigate('/');
+        navigate('/', {
+          state: {
+            firstName,
+            lastName,
+            email,
+            username
+          }
+        });
 
       } else {
         const errorData = await response.json();
@@ -100,9 +110,15 @@ const Register = ({ lang, setLang }) => {
       <div className="auth-box">
         <input
           type="text"
-          placeholder={lang === 'RO' ? 'Nume complet' : 'Full Name'}
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          placeholder={lang === 'RO' ? 'Prenume' : 'First Name'}
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder={lang === 'RO' ? 'Nume' : 'Last Name'}
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
         />
         <input
           type="text"
