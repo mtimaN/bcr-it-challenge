@@ -1,43 +1,58 @@
-import React from 'react'
-import './NavBar.css'
-import bcrLogo from '../../assets/nav_bar/bcrLogo.png'
-import sun from '../../assets/nav_bar/dayLogo.png'
-import moon from '../../assets/nav_bar/nightLogo.png'
-import magGlassDark from '../../assets/nav_bar/magGlassD.png'
-import magGlassLight from '../../assets/nav_bar/magGlassL.png'
+import React from 'react';
+import './NavBar.css';
+import bcrLogo from '../../assets/nav_bar/bcrLogo.png';
+import sun from '../../assets/nav_bar/dayLogo.png';
+import moon from '../../assets/nav_bar/nightLogo.png';
+import { NavLink } from 'react-router-dom';
+import roD from '../../assets/nav_bar/roDark.png';
+import enD from '../../assets/nav_bar/enDark.png';
+import roL from '../../assets/nav_bar/roLight.png';
+import enL from '../../assets/nav_bar/enLight.png';
 
-/* for navigation */
-import { NavLink, Link } from 'react-router-dom';
+const NavBar = ({ theme, setTheme, lang, setLang }) => {
+  const toggleMode = () => {
+    theme === 'light' ? setTheme('dark') : setTheme('light');
+  };
 
+  const toggleLang = () => {
+    setLang(lang === 'RO' ? 'EN' : 'RO');
+  };
 
-const NavBar = ({theme, setTheme}) => {
+  const getLangIcon = () => {
+    if (lang === 'RO') {
+      return theme === 'light' ? roD : roL;
+    }
 
-  /* change theme logic */
-  const toggle_mode = ()=>{
-    theme == 'light' ? setTheme('dark') : setTheme('light');
-  }
+    return theme === 'light' ? enD : enL;
+  };
 
   return (
     <div className='navbar'>
-        <img src={bcrLogo} alt="" className='logo'/>
-        <ul>
-            <li><NavLink to="/home" className={({ isActive }) => isActive ? 'active-link' : ''}>Home</NavLink></li>
-            <li><NavLink to="/discover" className={({ isActive }) => isActive ? 'active-link' : ''}>Discover</NavLink></li>
-            <li><NavLink to="/products" className={({ isActive }) => isActive ? 'active-link' : ''}>Products</NavLink></li>
-            <li><NavLink to="/profile" className={({ isActive }) => isActive ? 'active-link' : ''}>Profile</NavLink></li>
-            <li><NavLink to="/settings" className={({ isActive }) => isActive ? 'active-link' : ''}>Settings</NavLink></li>
-        </ul>
+      <img src={bcrLogo} alt="BCR Logo" className='logo' />
 
-        <div className='search-box'>
-            <input type="text" placeholder='Search'/>
-            <img src={theme =='light' ? magGlassLight : magGlassDark} alt=""/>
-        </div>
+      <ul>
+        <li><NavLink to="/home" className={({ isActive }) => isActive ? 'active-link' : ''}>Acasă</NavLink></li>
+        <li><NavLink to="/discover" className={({ isActive }) => isActive ? 'active-link' : ''}>Descoperă</NavLink></li>
+        <li><NavLink to="/profile" className={({ isActive }) => isActive ? 'active-link' : ''}>Profilul tău</NavLink></li>
+      </ul>
 
-        <img onClick={()=>{toggle_mode()}} src={theme =='light' ? moon : sun}
-        alt="" className='toggle-icon'/>
-
+      <div className='right-icons'>
+        <img
+          onClick={toggleMode}
+          src={theme === 'light' ? moon : sun}
+          alt="Theme Toggle"
+          className='toggle-icon'
+        />
+        <img
+          onClick={toggleLang}
+          src={getLangIcon()}
+          alt="Language Toggle"
+          className='lang-icon toggle-icon'
+          style={{ marginLeft: '20px' }}
+        />
+      </div>
     </div>
-  )
-}
+  );
+};
 
-export default NavBar
+export default NavBar;

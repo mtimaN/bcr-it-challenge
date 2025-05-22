@@ -1,40 +1,48 @@
-import React, {useEffect, useState} from 'react'
+// App.jsx
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-import NavBar from './Components/NavBar/NavBar'
-import Home from './Components/Home/Home'
-import Discover from './Components/Discover/Discover'
-import Products from './Components/Products/Products'
-import Profile from './Components/Profile/Profile'
-import Settings from './Components/Settings/Settings'
-
-/* to integrate page browsing */
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import NavBar from './Components/NavBar/NavBar';
+import Home from './Components/Home/Home';
+import Discover from './Components/Discover/Discover';
+import Profile from './Components/Profile/Profile';
+import Login from './Components/Auth/Login';
+import Register from './Components/Auth/Register';
 
 const App = () => {
-  /* keep current theme on refresh */
   const current_theme = localStorage.getItem('current_theme');
-  const [theme, setTheme] = useState(current_theme?
-    current_theme : 'light');
+  const [theme, setTheme] = useState(current_theme ? current_theme : 'light');
+  const [lang, setLang] = useState(localStorage.getItem('lang') || 'RO');
+  const [loggedIn, setLoggedIn] = useState(false);
 
-  /* when theme updates, this function calls */
-  useEffect(()=>{
+  useEffect(() => {
     localStorage.setItem('current_theme', theme);
-  }, [theme])
+    localStorage.setItem('lang', lang);
+  }, [theme, lang]);
 
   return (
     <div className={`container ${theme}`}>
       <Router>
-        <NavBar theme={theme} setTheme={setTheme} />
+        {loggedIn && <NavBar theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />}
         <Routes>
-          <Route path="/home" element={<Home theme={theme} setTheme={setTheme} />} />
-          <Route path="/discover" element={<Discover theme={theme} setTheme={setTheme} />} />
-          <Route path="/products" element={<Products theme={theme} setTheme={setTheme} />} />
-          <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme} />} />
-          <Route path="/settings" element={<Settings theme={theme} setTheme={setTheme} />} />
+          {!loggedIn ? (
+            <>
+              <Route path="/" element={<Login lang={lang} setLang={setLang} setLoggedIn={setLoggedIn} />} />
+              <Route path="/register" element={<Register lang={lang} setLang={setLang} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </>
+          ) : (
+            <>
+              <Route path="/home" element={<Home theme={theme} setTheme={setTheme} />} />
+              <Route path="/discover" element={<Discover theme={theme} setTheme={setTheme} />} />
+              <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme} />} />
+              <Route path="*" element={<Navigate to="/home" replace />} />
+            </>
+          )}
         </Routes>
       </Router>
     </div>
-  )
-}
+  );
+};
 
-export default App
+export default App;

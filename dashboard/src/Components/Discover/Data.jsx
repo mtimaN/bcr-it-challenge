@@ -80,10 +80,10 @@ const allServices = {
 };
 
 const serviceOrderByCluster = {
-  0: ['deposits', 'savings', 'insights', 'transfers', 'loans', 'cards'],
+  0: ['savings', 'deposits', 'insights', 'transfers', 'loans', 'cards'],
   1: ['cards', 'loans', 'transfers', 'deposits', 'insights', 'savings'],
-  2: ['insights', 'transfers', 'cards', 'savings', 'loans', 'deposits'],
-  3: ['transfers', 'cards', 'insights', 'loans', 'savings', 'deposits'],
+  2: ['insights', 'transfers', 'savings', 'cards', 'loans', 'deposits'],
+  3: ['transfers', 'savings', 'insights', 'loans', 'deposits', 'cards'],
 };
 
 export { adsByCluster, allServices, serviceOrderByCluster };
