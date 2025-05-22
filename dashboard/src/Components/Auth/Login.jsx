@@ -36,29 +36,32 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
   };
 
   const handleLogin = async () => {
-    try {
-      const response = await fetch('https://localhost:8443/v1/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // if backend sets cookies
-        body: JSON.stringify({
-          username: username,
-          password: password
-        })
-      });
+    setLoggedIn(true);
+    navigate('/home');
 
-      if (response.ok) {
-        setLoggedIn(true);
-        navigate('/home');
-      } else {
-        const errorData = await response.json();
-        alert('Login failed: ' + (errorData.error || 'Invalid credentials'));
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
+    // try {
+    //   const response = await fetch('https://localhost:8443/v1/login', {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json'
+    //     },
+    //     credentials: 'include', // if backend sets cookies
+    //     body: JSON.stringify({
+    //       username: username,
+    //       password: password
+    //     })
+    //   });
+
+    //   if (response.ok) {
+    //     setLoggedIn(true);
+    //     navigate('/home');
+    //   } else {
+    //     const errorData = await response.json();
+    //     alert('Login failed: ' + (errorData.error || 'Invalid credentials'));
+    //   }
+    // } catch (error) {
+    //   alert('Error: ' + error.message);
+    // }
   };
 
   const getLangIcon = () => {
