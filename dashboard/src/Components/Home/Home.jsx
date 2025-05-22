@@ -1,6 +1,7 @@
-import Balance from './Balance'
-import Transactions from './Transactions'
-import SpendingVisual from './SpendingVisual';
+import Balance from './Balance/Balance'
+import Transactions from './Transactions/Transactions'
+import SpendingVisual from './SpendingVisual/SpendingVisual';
+import SpentChart from './SpentChart/SpentChart'
 
 import React, { useState } from 'react';
 
@@ -18,6 +19,7 @@ const Home = ({ theme, setTheme }) => {
       <Balance theme={theme} setTheme={setTheme}/>
       <Transactions theme={theme} setTheme={setTheme}/>
       <SpendingVisual theme={theme} setTheme={setTheme}/>
+      <SpentChart theme={theme} setTheme={setTheme}/>
     </div>
   )
 }

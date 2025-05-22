@@ -4,13 +4,12 @@ import ServiceTiles from './ServiceTiles/ServiceTiles';
 import './Discover.css'
 
 const Discover = ({theme, setTheme}) => {
-  const userCluster = 0;
+  const userCluster = 3;
 
   /* change theme logic */
   const toggle_mode = () => {
     theme === 'light' ? setTheme('dark') : setTheme('light');
   }; 
-
 
   return (
     <div>

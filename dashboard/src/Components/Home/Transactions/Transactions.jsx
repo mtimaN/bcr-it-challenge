@@ -74,7 +74,7 @@ const Transactions = ({ theme, setTheme }) => {
     ];
   
     return (
-        <div className="account-transactions">
+      <div className="account-transactions">
         <div className="transaction-scroll-area">
             {transactionData.slice(0, 10).map((tx, index) => (
             <div key={index} className="transaction-wrapper">
@@ -93,7 +93,7 @@ const Transactions = ({ theme, setTheme }) => {
             </div>
             ))}
         </div>
-        </div>
+      </div>
     );
   };
 
