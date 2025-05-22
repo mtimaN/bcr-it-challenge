@@ -16,6 +16,8 @@ docker-compose up -d
 
 Wait until gossip settles...
 
+You may need to create the keyspace and table:
+
 ```bash
 docker exec -it cassandraDB cqlsh
 ```
@@ -46,6 +48,12 @@ In order for the server to run, you must have valid openssl certificates in *$pr
 
 ```bash
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout $proj_root/certs/server.key -out $proj_root/certs/server.crt -config $proj_root/certs/openssl.cnf -extensions v3_req
+```
+
+To create a random JWT secret, use:
+
+```bash
+export JWT_SECRET=$(openssl rand -base64 32)
 ```
 
 You can press *Enter* until the setup finished.

@@ -20,25 +20,27 @@ type Server struct {
 
 func NewServer() (*Server, error) {
 	// Default credentials if environment variables not set
-	username := getEnvOrDefault("CASS_USERNAME", "backend")
-	password := getEnvOrDefault("CASS_PASSWORD", "BPass0319")
-	keyspace := getEnvOrDefault("CASS_KEYSPACE", "cass_keyspace")
+	cassUsername := getEnvOrDefault("CASS_USERNAME", "backend")
+	cassPassword := getEnvOrDefault("CASS_PASSWORD", "BPass0319")
+	cassKeyspace := getEnvOrDefault("CASS_KEYSPACE", "cass_keyspace")
 
-	userRepo, err := db.NewCassandraRepo(db.NewCassandraConfig(username, password, keyspace))
+	userRepo, err := db.NewCassandraRepo(db.NewCassandraConfig(cassUsername, cassPassword, cassKeyspace))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Cassandra: %w", err)
 	}
 
 	redisPassword := getEnvOrDefault("REDIS_PASSWORD", "RPass0319")
+
 	userCache, err := db.NewRedisRepo(db.NewRedisConfig(redisPassword))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Redis: %w", err)
 	}
 
+	jwtSecret := getEnvOrDefault("JWT_SECRET", "some_secret")
 	return &Server{
 		userRepo:   userRepo,
 		userCache:  userCache,
-		jwtmanager: NewJWTManager(),
+		jwtmanager: NewJWTManager(jwtSecret),
 	}, nil
 }
 
@@ -52,13 +54,23 @@ func getEnvOrDefault(key, defaultValue string) string {
 func (s *Server) loginCheck(ctx context.Context, cred *db.Credentials) (*db.User, error) {
 	// Try Redis first, fallback to Cassandra
 	user, err := s.userCache.Get(ctx, cred.Username)
-	if err != nil && !strings.Contains(err.Error(), "incorrect password") {
+	if err != nil {
 		user, err = s.userRepo.GetUser(ctx, cred.Username)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if !db.CheckPasswordHash(cred.Password, user.Password) {
+		log.Println(cred.Password)
+		h, err := db.HashPassword(cred.Password)
+		if err != nil {
+			panic(err)
+		}
+		hh, err := db.HashPassword(h)
+		if err != nil {
+			panic(err)
+		}
+		log.Printf("hash: %s, rehash: %s; stored: %s", h, hh, user.Password)
 		return nil, errors.New("unauthorized: incorrect password")
 	}
 
@@ -92,6 +104,12 @@ func (s *Server) register(ctx context.Context, user *db.User) error {
 		return errors.New("validation: username exists")
 	}
 
+	hashedPassword, err := db.HashPassword(user.Password)
+	if err != nil {
+		return fmt.Errorf("internal: %w", err)
+	}
+
+	user.Password = hashedPassword
 	if err := s.userRepo.AddUser(ctx, user); err != nil {
 		return err
 	}
@@ -143,7 +161,7 @@ func (p Payload) user() *db.User {
 	return &db.User{
 		Credentials: cred,
 		Email:       p.getString("email"),
-		Category:    p.getInt("category", -1),
+		Category:    p.getInt("category", 2),
 	}
 }
 
@@ -186,7 +204,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("login: %v", err)
 		if strings.Contains(err.Error(), "unauthorized") {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			http.Error(w, "Unauthorized"+err.Error(), http.StatusUnauthorized)
 		} else {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
@@ -205,20 +223,20 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := parseJSON(r)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		http.Error(w, "Bad request1", http.StatusBadRequest)
 		return
 	}
 
 	user := payload.user()
 	if user == nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		http.Error(w, "Bad request2", http.StatusBadRequest)
 		return
 	}
 
 	if err := s.register(r.Context(), user); err != nil {
 		log.Printf("register: %v", err)
 		if strings.Contains(err.Error(), "validation:") {
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			http.Error(w, "Bad request"+err.Error(), http.StatusBadRequest)
 		} else {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
@@ -257,12 +275,13 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("update: %v", err)
 		if strings.Contains(err.Error(), "unauthorized") {
-			http.Error(w, "unauthorized: "+err.Error(), http.StatusUnauthorized)
+			http.Error(w, "update: "+err.Error(), http.StatusUnauthorized)
 		} else if strings.Contains(err.Error(), "validation") {
-			http.Error(w, "validation: "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
 		} else {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
+		return
 	}
 
 	newPassword := payload.getString("new_password")
@@ -281,6 +300,14 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	updatedUser := db.NewUser(username, newPassword, email)
 	updatedUser.Category = category
 
+	hashedPassword, err := db.HashPassword(updatedUser.Password)
+	if err != nil {
+		http.Error(w, "internal: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	updatedUser.Password = hashedPassword
+
 	if err := s.userRepo.UpdateUser(r.Context(), updatedUser); err != nil {
 		log.Printf("Update user error: %v", err)
 		if strings.Contains(err.Error(), "unauthorized") {
@@ -293,7 +320,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.userCache.Add(r.Context(), user)
+	s.userCache.Add(r.Context(), updatedUser)
 	w.Write([]byte("User updated successfully"))
 }
 

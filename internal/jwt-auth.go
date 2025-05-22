@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -20,11 +19,7 @@ type JWTClaims struct {
 }
 
 // NewJWTManager initializes and returns a new JWTManager
-func NewJWTManager() *JWTManager {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		panic("JWT_SECRET environment variable not set")
-	}
+func NewJWTManager(secret string) *JWTManager {
 	return &JWTManager{
 		secretKey: []byte(secret),
 		issuer:    "bcr-auth",

@@ -22,6 +22,13 @@ type User struct {
 	Category int    `json:"category"`
 }
 
+const (
+	SaverCategory int = iota
+	SpenderCategory
+	AntiUserCategory
+	YoungCategory
+)
+
 func NewCredentials(username, password string) *Credentials {
 	return &Credentials{
 		Username: username,
@@ -33,7 +40,7 @@ func NewUser(username, password, email string) *User {
 	return &User{
 		Credentials: NewCredentials(username, password),
 		Email:       email,
-		Category:    0,
+		Category:    AntiUserCategory,
 	}
 }
 

@@ -148,24 +148,9 @@ func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
 		return fmt.Errorf("validation: %w", err)
 	}
 
-	// Check if user already exists
-	exists, err := c.UsernameExists(ctx, user.Username)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return ErrUsernameExists
-	}
-
-	// Hash password before storing
-	hashedPassword, err := HashPassword(user.Password)
-	if err != nil {
-		return ErrPasswordProcessing
-	}
-
 	if err := c.session.Query(
 		"INSERT INTO users (username, password, email, category) VALUES (?, ?, ?, ?)",
-		user.Username, hashedPassword, user.Email, user.Category).
+		user.Username, user.Password, user.Email, user.Category).
 		WithContext(ctx).Exec(); err != nil {
 		return ErrUserCreationFailed
 	}
@@ -177,6 +162,14 @@ func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
 func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User) error {
 	if err := c.ensureSession(); err != nil {
 		return err
+	}
+
+	ok, err := c.UsernameExists(ctx, user.Username)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrUserNotFound
 	}
 
 	if err := c.session.Query(

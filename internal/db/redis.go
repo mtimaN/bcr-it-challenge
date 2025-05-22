@@ -46,6 +46,8 @@ type RedisRepo struct {
 	config *RedisConfig
 }
 
+var _ UserCache = (*RedisRepo)(nil)
+
 // NewRedisConfig creates a new Redis configuration with secure defaults
 func NewRedisConfig(password string) *RedisConfig {
 	return &RedisConfig{
@@ -186,11 +188,6 @@ func (r *RedisRepo) Add(ctx context.Context, user *User) error {
 		},
 		Email:    user.Email,
 		Category: user.Category,
-	}
-
-	rUser.Password, err = HashPassword(rUser.Password)
-	if err != nil {
-		return fmt.Errorf("internal: %w", err)
 	}
 
 	val, err := json.Marshal(rUser)
