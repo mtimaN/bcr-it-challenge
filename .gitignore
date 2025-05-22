@@ -1,4 +1,5 @@
 */.vscode
 */*.crt
 */*.key
-*/*.conf
+*.key
+*.crt

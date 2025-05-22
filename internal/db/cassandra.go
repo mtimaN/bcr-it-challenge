@@ -140,14 +140,6 @@ func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
 		return err
 	}
 
-	if user.Email == "" {
-		return ErrInvalidEmail
-	}
-
-	if err := ValidUser(user); err != nil {
-		return fmt.Errorf("validation: %w", err)
-	}
-
 	if err := c.session.Query(
 		"INSERT INTO users (username, password, email, category) VALUES (?, ?, ?, ?)",
 		user.Username, user.Password, user.Email, user.Category).
