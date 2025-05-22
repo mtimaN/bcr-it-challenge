@@ -5,7 +5,7 @@
 To configure the project root, use
 
 ```bash
-EXPORT proj_root='/path/to/project/root'
+export proj_root='/path/to/project/root'
 ```
 
 ### Databases
@@ -15,6 +15,12 @@ docker-compose up -d
 ```
 
 Wait until gossip settles...
+
+use
+```bash
+docker-compose ps
+```
+to check the status
 
 You may need to create the keyspace and table:
 
@@ -34,11 +40,13 @@ CREATE TABLE IF NOT EXISTS cass_keyspace.users (
 	-- data
 	category int
 );
+
+exit
 ```
 
 ### Server
 
-To start in background:
+To start the server:
 
 ```bash
 cd $proj_root/internal/ && go run .
@@ -72,8 +80,6 @@ TRUNCATE cass_keyspace.users;
 
 inside the docker cqlsh (see *Databases* section) before running that test manually
 
-
-If the issue persists, run the tests manually :(.
 
 ## Closing the app
 

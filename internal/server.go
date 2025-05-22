@@ -207,7 +207,7 @@ func (p Payload) user() *db.User {
 	return &db.User{
 		Credentials: cred,
 		Email:       p.getString("email"),
-		Category:    p.getInt("category", 2),
+		Category:    2,
 	}
 }
 
