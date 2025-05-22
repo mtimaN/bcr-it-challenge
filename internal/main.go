@@ -45,7 +45,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.recordDBOperation("user_login", "error")
 		log.Printf("login: %v", err)
-    
+
 		if strings.Contains("login: "+err.Error(), "unauthorized") {
 			JSONError(w, err.Error(), http.StatusUnauthorized)
 		} else {
@@ -68,7 +68,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	payload, err := parseJSON(r)
 	if err != nil {
 		s.recordDBOperation("user_register", "error")
-    
+
 		JSONError(w, "Bad request: invalid json", http.StatusBadRequest)
 		return
 	}
@@ -284,12 +284,14 @@ func main() {
 		mux.HandleFunc(path, handler)
 	}
 
+	certDir := getEnvOrDefault("TLS_CERT_DIR", "../certs")
+
 	go func() {
 		metricsMux := http.NewServeMux()
 		metricsMux.Handle("/metrics", promhttp.Handler())
 
 		fmt.Println("Metrics server starting on port :8080")
-		log.Fatal(http.ListenAndServe("0.0.0.0:8080", metricsMux))
+		log.Fatal(http.ListenAndServeTLS("0.0.0.0:8080", certDir+"/server.crt", certDir+"/server.key", metricsMux))
 	}()
 
 	go func() {
@@ -300,7 +302,6 @@ func main() {
 	}()
 
 	port := ":8443"
-	certDir := getEnvOrDefault("TLS_CERT_DIR", "../certs")
 
 	fmt.Printf("Server starting on port %s with rate limiting (100 req/min per IP)\n", port)
 	log.Fatal(http.ListenAndServeTLS(port, certDir+"/server.crt", certDir+"/server.key", mux))

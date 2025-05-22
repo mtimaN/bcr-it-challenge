@@ -6,6 +6,9 @@ To configure the project root, use
 
 ```bash
 export proj_root='/path/to/project/root'
+
+# for example, when you are in project root, run
+# export proj_root=$(pwd)
 ```
 
 ### Databases
