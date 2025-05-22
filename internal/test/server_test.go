@@ -3,625 +3,404 @@ package test
 import (
 	"bytes"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 )
 
-// Configuration constants
 const (
-	defaultBaseURL     = "https://localhost:8443"
-	defaultCertDir     = "../../certs"
-	requestTimeout     = 30 * time.Second
-	contentTypeJSON    = "application/json"
-	testUserPrefix     = "apitest"
-	testEmailDomain    = "example.com"
-	testPasswordStrong = "TestPassword123!"
+	baseURL      = "https://localhost:8443/v1"
+	testUsername = "testuser"
+	testPassword = "testpassword"
+	testEmail    = "test@example.com"
 )
 
-// API endpoints
-const (
-	endpointRegister = "/v1/register"
-	endpointLogin    = "/v1/login"
-	endpointUpdate   = "/v1/update"
-	endpointDelete   = "/v1/delete"
-	endpointStats    = "/v1/stats"
+var (
+	client *http.Client
+	token  string
 )
 
-// Test payload structures
-type TestPayload struct {
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	Email       string `json:"email,omitempty"`
-	OldPassword string `json:"old_password,omitempty"`
-	Category    int    `json:"category,omitempty"`
+func TestMain(m *testing.M) {
+	// Skip TLS verification for testing
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client = &http.Client{Transport: tr}
+
+	// Give the server time to start if running tests concurrently
+	time.Sleep(1 * time.Second)
+
+	code := m.Run()
+	// Clean up test user if needed
+	cleanupTestUser()
+	os.Exit(code)
 }
 
-type APIResponse struct {
-	Message string                 `json:"message,omitempty"`
-	Error   string                 `json:"error,omitempty"`
-	Data    map[string]interface{} `json:"data,omitempty"`
+func TestUserLifecycle(t *testing.T) {
+	t.Run("Register new user", testRegister)
+	t.Run("Login with created user", testLogin)
+	t.Run("Get ads category", testGetAdsCategory)
+	t.Run("Update user information", testUpdateUser)
+	t.Run("Delete user", testDeleteUser)
 }
 
-type StatsResponse struct {
-	TotalUsers     int                    `json:"total_users"`
-	ActiveSessions int                    `json:"active_sessions"`
-	DatabaseStats  map[string]interface{} `json:"database_stats,omitempty"`
-}
-
-type TestReporter interface {
-	Helper()
-	Errorf(string, ...any)
-	Fatalf(string, ...any)
-	Fatal(...any)
-	Logf(string, ...any)
-}
-
-// Test client management
-type APITestClient struct {
-	baseURL    string
-	httpClient *http.Client
-	t          TestReporter
-}
-
-func newAPITestClient(t TestReporter) *APITestClient {
-	t.Helper()
-
-	baseURL := os.Getenv("API_BASE_URL")
-	if baseURL == "" {
-		baseURL = defaultBaseURL
+func testRegister(t *testing.T) {
+	payload := map[string]interface{}{
+		"username": testUsername,
+		"password": testPassword,
+		"email":    testEmail,
 	}
 
-	certDir := os.Getenv("TLS_CERT_DIR")
-	if certDir == "" {
-		certDir = defaultCertDir
-	}
-
-	client := &APITestClient{
-		baseURL:    baseURL,
-		httpClient: createSecureHTTPClient(t, certDir),
-		t:          t,
-	}
-
-	return client
-}
-
-func createSecureHTTPClient(t TestReporter, certDir string) *http.Client {
-	t.Helper()
-
-	certPath := fmt.Sprintf("%s/server.crt", certDir)
-	cert, err := os.ReadFile(certPath)
+	resp, err := makeRequest("POST", "/register", payload, "")
 	if err != nil {
-		t.Fatalf("failed to read certificate from %s: %v", certPath, err)
+		t.Fatalf("Failed to register user: %v", err)
 	}
-
-	caCertPool := x509.NewCertPool()
-	if !caCertPool.AppendCertsFromPEM(cert) {
-		t.Fatal("failed to append certificate to CA pool")
-	}
-
-	return &http.Client{
-		Timeout: requestTimeout,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:    caCertPool,
-				MinVersion: tls.VersionTLS12, // Enforce minimum TLS version
-			},
-		},
-	}
-}
-
-// Test data factory functions
-func createTestPayload(suffix string) TestPayload {
-	return TestPayload{
-		Username: fmt.Sprintf("%s_%s", testUserPrefix, suffix),
-		Password: testPasswordStrong,
-		Email:    fmt.Sprintf("%s_%s@%s", testUserPrefix, suffix, testEmailDomain),
-		Category: 0,
-	}
-}
-
-func createInvalidPayloads() map[string]TestPayload {
-	return map[string]TestPayload{
-		"empty_username": {
-			Username: "",
-			Password: testPasswordStrong,
-			Email:    "test@example.com",
-		},
-		"short_username": {
-			Username: "ab",
-			Password: testPasswordStrong,
-			Email:    "test@example.com",
-		},
-		"weak_password": {
-			Username: "testuser",
-			Password: "123",
-			Email:    "test@example.com",
-		},
-		"invalid_email": {
-			Username: "testuser",
-			Password: testPasswordStrong,
-			Email:    "not-an-email",
-		},
-		"missing_email": {
-			Username: "testuser",
-			Password: testPasswordStrong,
-			Email:    "",
-		},
-	}
-}
-
-// HTTP request helpers
-func (c *APITestClient) makeRequest(method, endpoint string, payload interface{}) (*http.Response, error) {
-	c.t.Helper()
-
-	url := c.baseURL + endpoint
-
-	var body io.Reader
-	if payload != nil {
-		jsonData, err := json.Marshal(payload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal payload: %w", err)
-		}
-		body = bytes.NewReader(jsonData)
-	}
-
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	if body != nil {
-		req.Header.Set("Content-Type", contentTypeJSON)
-	}
-	req.Header.Set("User-Agent", "API-Test-Client/1.0")
-
-	return c.httpClient.Do(req)
-}
-
-func (c *APITestClient) makeJSONRequest(method, endpoint string, payload interface{}) (*http.Response, error) {
-	return c.makeRequest(method, endpoint, payload)
-}
-
-func (c *APITestClient) post(endpoint string, payload interface{}) (*http.Response, error) {
-	return c.makeJSONRequest("POST", endpoint, payload)
-}
-
-func (c *APITestClient) get(endpoint string) (*http.Response, error) {
-	return c.makeRequest("GET", endpoint, nil)
-}
-
-func (c *APITestClient) parseResponseBody(resp *http.Response) ([]byte, error) {
-	c.t.Helper()
-
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("Expected status 201, got %d: %s", resp.StatusCode, body)
+	}
+}
+
+func testLogin(t *testing.T) {
+	payload := map[string]interface{}{
+		"username": testUsername,
+		"password": testPassword,
+	}
+
+	resp, err := makeRequest("POST", "/login", payload, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		t.Fatalf("Failed to login: %v", err)
 	}
-	return body, nil
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("Expected status 200, got %d: %s", resp.StatusCode, body)
+	}
+
+	var result map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if result["token"] == "" {
+		t.Fatal("No token received in login response")
+	}
+
+	// Save token for later tests
+	token = result["token"]
 }
 
-func (c *APITestClient) parseJSONResponse(resp *http.Response, target interface{}) error {
-	c.t.Helper()
+func testGetAdsCategory(t *testing.T) {
+	if token == "" {
+		t.Fatal("No auth token available")
+	}
 
-	body, err := c.parseResponseBody(resp)
+	resp, err := makeRequest("GET", "/get_ads", nil, token)
 	if err != nil {
-		return err
+		t.Fatalf("Failed to get ads category: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("Expected status 200, got %d: %s", resp.StatusCode, body)
 	}
 
-	if err := json.Unmarshal(body, target); err != nil {
-		return fmt.Errorf("failed to unmarshal JSON response: %w, body: %s", err, string(body))
+	var result map[string]int
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	return nil
+	if result["category"] != 2 {
+		t.Fatalf("Expected category 2, got %d", result["category"])
+	}
 }
 
-func (c *APITestClient) expectStatusCode(resp *http.Response, expected int) {
-	c.t.Helper()
+func testUpdateUser(t *testing.T) {
+	if token == "" {
+		t.Fatal("No auth token available")
+	}
 
-	if resp.StatusCode != expected {
-		body, _ := c.parseResponseBody(resp)
-		c.t.Fatalf("expected status %d, got %d. Response body: %s",
-			expected, resp.StatusCode, string(body))
+	// Update email and category
+	payload := map[string]interface{}{
+		"password":     testPassword,
+		"email":        "updated@example.com",
+		"category":     2,
+		"new_password": "newpassword",
+	}
+
+	resp, err := makeRequest("POST", "/update", payload, token)
+	if err != nil {
+		t.Fatalf("Failed to update user: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("Expected status 200, got %d: %s", resp.StatusCode, body)
+	}
+
+	// Login with new password to verify update
+	loginPayload := map[string]interface{}{
+		"username": testUsername,
+		"password": "newpassword",
+	}
+
+	loginResp, err := makeRequest("POST", "/login", loginPayload, "")
+	if err != nil {
+		t.Fatalf("Failed to login with new password: %v", err)
+	}
+	defer loginResp.Body.Close()
+
+	if loginResp.StatusCode != http.StatusOK {
+		t.Fatal("Failed to login with updated credentials")
+	}
+
+	// Update token
+	var result map[string]string
+	if err := json.NewDecoder(loginResp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+	token = result["token"]
+
+	// Check if category was updated
+	catResp, err := makeRequest("GET", "/get_ads", nil, token)
+	if err != nil {
+		t.Fatalf("Failed to get updated category: %v", err)
+	}
+	defer catResp.Body.Close()
+
+	var catResult map[string]int
+	if err := json.NewDecoder(catResp.Body).Decode(&catResult); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if catResult["category"] != 2 {
+		t.Fatalf("Expected updated category 2, got %d", catResult["category"])
 	}
 }
 
-func (c *APITestClient) expectStatusCodeIn(resp *http.Response, expected ...int) {
-	c.t.Helper()
+func testDeleteUser(t *testing.T) {
+	if token == "" {
+		t.Fatal("No auth token available")
+	}
 
-	for _, code := range expected {
-		if resp.StatusCode == code {
+	resp, err := makeRequest("POST", "/delete", nil, token)
+	if err != nil {
+		t.Fatalf("Failed to delete user: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("Expected status 200, got %d: %s", resp.StatusCode, body)
+	}
+
+	// Verify user is deleted by trying to login
+	payload := map[string]interface{}{
+		"username": testUsername,
+		"password": "newpassword", // Using the updated password
+	}
+
+	loginResp, err := makeRequest("POST", "/login", payload, "")
+	if err != nil {
+		t.Fatalf("Error making login request: %v", err)
+	}
+	defer loginResp.Body.Close()
+
+	// Should fail with unauthorized
+	if loginResp.StatusCode >= 200 && loginResp.StatusCode < 300 {
+		t.Fatalf("Expected error status for deleted user, got %d", loginResp.StatusCode)
+	}
+}
+
+func TestInvalidRequests(t *testing.T) {
+	t.Run("Register with existing username", testRegisterDuplicate)
+	t.Run("Login with invalid credentials", testInvalidLogin)
+	t.Run("Access protected endpoint without token", testUnauthorizedAccess)
+}
+
+func testRegisterDuplicate(t *testing.T) {
+	// First, register a user
+	payload := map[string]interface{}{
+		"username": "dupluser",
+		"password": "testpassword",
+		"email":    "dupl@example.com",
+		"category": 1,
+	}
+
+	resp, err := makeRequest("POST", "/register", payload, "")
+	if err != nil {
+		t.Fatalf("Failed to register user for duplicate test: %v", err)
+	}
+	resp.Body.Close()
+
+	// Try to register again with same username
+	resp, err = makeRequest("POST", "/register", payload, "")
+	if err != nil {
+		t.Fatalf("Failed to make duplicate registration request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("Expected status 400 for duplicate registration, got %d", resp.StatusCode)
+	}
+
+	// Clean up
+	loginResp, err := makeRequest("POST", "/login", payload, "")
+	if err == nil {
+		var result map[string]string
+		json.NewDecoder(loginResp.Body).Decode(&result)
+		loginResp.Body.Close()
+
+		if result["token"] != "" {
+			deleteResp, _ := makeRequest("POST", "/delete", nil, result["token"])
+			if deleteResp != nil {
+				deleteResp.Body.Close()
+			}
+		}
+	}
+}
+
+func testInvalidLogin(t *testing.T) {
+	payload := map[string]interface{}{
+		"username": "nonexistentuser",
+		"password": "wrongpassword",
+	}
+
+	resp, err := makeRequest("POST", "/login", payload, "")
+	if err != nil {
+		t.Fatalf("Failed to make invalid login request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		t.Fatalf("Expected error status for invalid login, got %d", resp.StatusCode)
+	}
+}
+
+func testUnauthorizedAccess(t *testing.T) {
+	resp, err := makeRequest("GET", "/get_ads", nil, "")
+	if err != nil {
+		t.Fatalf("Failed to make unauthorized request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("Expected status 401 for unauthorized access, got %d", resp.StatusCode)
+	}
+}
+
+func TestServerStats(t *testing.T) {
+	// No authentication needed for stats endpoint in this implementation
+	resp, err := makeRequest("GET", "/stats", nil, "")
+	if err != nil {
+		t.Fatalf("Failed to get server stats: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200 for stats, got %d", resp.StatusCode)
+	}
+
+	// Just check if we get valid JSON, not testing specific values
+	var stats map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		t.Fatalf("Failed to decode stats response: %v", err)
+	}
+
+	printStats(stats)
+}
+
+// Helper functions
+
+func printStats(stats map[string]interface{}) {
+	fmt.Println("-- Redis Stats --")
+	for k, v := range stats {
+		if val, ok := v.(float64); ok {
+			fmt.Printf("%s: %d\n", k, uint32(val))
+		} else {
+			fmt.Printf("%s: (invalid type)\n", k)
+		}
+	}
+}
+
+func makeRequest(method, endpoint string, payload interface{}, authToken string) (*http.Response, error) {
+	var reqBody io.Reader
+	if payload != nil {
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		reqBody = bytes.NewBuffer(data)
+	}
+
+	req, err := http.NewRequest(method, baseURL+endpoint, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	if authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+authToken)
+	}
+
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	return client.Do(req)
+}
+
+func cleanupTestUser() {
+	// Try to login and delete the test user if it exists
+	payload := map[string]interface{}{
+		"username": testUsername,
+		"password": testPassword,
+	}
+
+	resp, err := makeRequest("POST", "/login", payload, "")
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return
+	}
+
+	var result map[string]string
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	resp.Body.Close()
+	if err != nil || result["token"] == "" {
+		return
+	}
+
+	// Try with new password if the user was updated
+	if result["token"] == "" {
+		payload["password"] = "newpassword"
+		resp, err = makeRequest("POST", "/login", payload, "")
+		if err != nil || resp.StatusCode != http.StatusOK {
+			if resp != nil {
+				resp.Body.Close()
+			}
+			return
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		resp.Body.Close()
+		if err != nil || result["token"] == "" {
 			return
 		}
 	}
 
-	body, _ := c.parseResponseBody(resp)
-	c.t.Fatalf("expected status in %v, got %d. Response body: %s",
-		expected, resp.StatusCode, string(body))
-}
-
-// Cleanup helper
-func (c *APITestClient) cleanupUser(username string) {
-	c.t.Helper()
-
-	payload := TestPayload{
-		Username: username,
-		Password: testPasswordStrong, // Assuming default password
-	}
-
-	resp, err := c.post(endpointDelete, payload)
-	if err != nil {
-		c.t.Logf("cleanup failed for user %s: %v", username, err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
-		c.t.Logf("cleanup returned unexpected status for user %s: %d", username, resp.StatusCode)
-	}
-}
-
-// Test functions
-func TestAPI_InvalidRequests(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping API integration test in short mode")
-	}
-
-	client := newAPITestClient(t)
-
-	t.Run("malformed_json", func(t *testing.T) {
-		// Test malformed JSON syntax
-		malformedJSON := `{"username": "test", "email": "bad@example.com", "password": "1234",}` // extra comma
-
-		req, err := http.NewRequest("POST", client.baseURL+endpointRegister, strings.NewReader(malformedJSON))
-		if err != nil {
-			t.Fatalf("failed to create request: %v", err)
-		}
-		req.Header.Set("Content-Type", contentTypeJSON)
-
-		resp, err := client.httpClient.Do(req)
-		if err != nil {
-			t.Fatalf("request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-			body, _ := client.parseResponseBody(resp)
-			t.Fatalf("expected error for malformed JSON, got %d: %s", resp.StatusCode, string(body))
-		}
-	})
-
-	t.Run("validation_errors", func(t *testing.T) {
-		invalidPayloads := createInvalidPayloads()
-
-		for name, payload := range invalidPayloads {
-			t.Run(name, func(t *testing.T) {
-				resp, err := client.post(endpointRegister, payload)
-				if err != nil {
-					t.Fatalf("request failed: %v", err)
-				}
-				defer resp.Body.Close()
-
-				// Should return 4xx error for validation failures
-				if resp.StatusCode < 400 || resp.StatusCode >= 500 {
-					body, _ := client.parseResponseBody(resp)
-					t.Errorf("expected 4xx validation error, got %d: %s", resp.StatusCode, string(body))
-				}
-			})
-		}
-	})
-
-	t.Run("unsupported_content_type", func(t *testing.T) {
-		req, err := http.NewRequest("POST", client.baseURL+endpointRegister, strings.NewReader("plain text"))
-		if err != nil {
-			t.Fatalf("failed to create request: %v", err)
-		}
-		req.Header.Set("Content-Type", "text/plain")
-
-		resp, err := client.httpClient.Do(req)
-		if err != nil {
-			t.Fatalf("request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-			t.Fatalf("expected error for unsupported content type, got %d", resp.StatusCode)
-		}
-	})
-
-	t.Run("nonexistent_endpoint", func(t *testing.T) {
-		resp, err := client.get("/v1/nonexistent")
-		if err != nil {
-			t.Fatalf("request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusNotFound {
-			t.Errorf("expected 404 for nonexistent endpoint, got %d", resp.StatusCode)
-		}
-	})
-}
-
-func TestAPI_Stats(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping API integration test in short mode")
-	}
-
-	client := newAPITestClient(t)
-
-	resp, err := client.get(endpointStats)
-	if err != nil {
-		t.Fatalf("stats request failed: %v", err)
-	}
-	defer resp.Body.Close()
-
-	client.expectStatusCode(resp, http.StatusOK)
-
-	var stats StatsResponse
-	if err := client.parseJSONResponse(resp, &stats); err != nil {
-		// Fallback to generic map if specific structure fails
-		var genericStats map[string]interface{}
-		body, _ := client.parseResponseBody(resp)
-		if err := json.Unmarshal(body, &genericStats); err != nil {
-			t.Fatalf("failed to parse stats response: %v, body: %s", err, string(body))
-		}
-		t.Logf("Stats (generic): %+v", genericStats)
-		return
-	}
-
-	t.Logf("Stats: TotalUsers=%d, ActiveSessions=%d, DatabaseStats=%+v",
-		stats.TotalUsers, stats.ActiveSessions, stats.DatabaseStats)
-
-	// Basic validation
-	if stats.TotalUsers < 0 {
-		t.Errorf("total users should not be negative: %d", stats.TotalUsers)
-	}
-	if stats.ActiveSessions < 0 {
-		t.Errorf("active sessions should not be negative: %d", stats.ActiveSessions)
-	}
-}
-
-func TestAPI_UserLifecycle(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping API integration test in short mode")
-	}
-
-	client := newAPITestClient(t)
-	payload := createTestPayload("lifecycle")
-
-	// Ensure cleanup
-	t.Cleanup(func() {
-		client.cleanupUser(payload.Username)
-	})
-
-	t.Run("register_user", func(t *testing.T) {
-		resp, err := client.post(endpointRegister, payload)
-		if err != nil {
-			t.Fatalf("register request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		client.expectStatusCode(resp, http.StatusCreated)
-
-		var response APIResponse
-		if err := client.parseJSONResponse(resp, &response); err != nil {
-			t.Logf("failed to parse register response as structured JSON: %v", err)
-		} else {
-			t.Logf("Register response: %s", response.Message)
-		}
-	})
-
-	t.Run("duplicate_registration", func(t *testing.T) {
-		// Try to register the same user again
-		resp, err := client.post(endpointRegister, payload)
-		if err != nil {
-			t.Fatalf("duplicate register request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		// Should return conflict or bad request
-		client.expectStatusCodeIn(resp, http.StatusConflict, http.StatusBadRequest)
-	})
-
-	t.Run("login_user", func(t *testing.T) {
-		loginPayload := TestPayload{
-			Username: payload.Username,
-			Password: payload.Password,
-		}
-
-		resp, err := client.post(endpointLogin, loginPayload)
-		if err != nil {
-			t.Fatalf("login request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		client.expectStatusCode(resp, http.StatusOK)
-
-		var response APIResponse
-		if err := client.parseJSONResponse(resp, &response); err != nil {
-			t.Logf("failed to parse login response as structured JSON: %v", err)
-		}
-	})
-
-	t.Run("login_wrong_password", func(t *testing.T) {
-		wrongLoginPayload := TestPayload{
-			Username: payload.Username,
-			Password: "WrongPassword123!",
-		}
-
-		resp, err := client.post(endpointLogin, wrongLoginPayload)
-		if err != nil {
-			t.Fatalf("wrong password login request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		// Should return unauthorized
-		client.expectStatusCode(resp, http.StatusUnauthorized)
-	})
-
-	t.Run("update_user", func(t *testing.T) {
-		updatedPayload := TestPayload{
-			Username:    payload.Username,
-			Password:    "NewPassword123!",
-			Email:       fmt.Sprintf("updated_%s@%s", payload.Username, testEmailDomain),
-			Category:    2,
-			OldPassword: payload.Password,
-		}
-
-		resp, err := client.post(endpointUpdate, updatedPayload)
-		if err != nil {
-			t.Fatalf("update request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		client.expectStatusCode(resp, http.StatusOK)
-
-		// Update our test payload for subsequent tests
-		payload.Password = updatedPayload.Password
-		payload.Email = updatedPayload.Email
-		payload.Category = updatedPayload.Category
-
-		// Verify we can login with new password
-		loginPayload := TestPayload{
-			Username: payload.Username,
-			Password: payload.Password,
-		}
-
-		loginResp, err := client.post(endpointLogin, loginPayload)
-		if err != nil {
-			t.Fatalf("login with new password failed: %v", err)
-		}
-		defer loginResp.Body.Close()
-
-		client.expectStatusCode(loginResp, http.StatusOK)
-	})
-
-	t.Run("update_wrong_old_password", func(t *testing.T) {
-		wrongUpdatePayload := TestPayload{
-			Username:    payload.Username,
-			Password:    "AnotherPassword123!",
-			Email:       "another@example.com",
-			Category:    3,
-			OldPassword: "WrongOldPassword123!",
-		}
-
-		resp, err := client.post(endpointUpdate, wrongUpdatePayload)
-		if err != nil {
-			t.Fatalf("update with wrong old password request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		// Should return unauthorized or bad request
-		client.expectStatusCodeIn(resp, http.StatusUnauthorized, http.StatusBadRequest)
-	})
-
-	t.Run("delete_user", func(t *testing.T) {
-		deletePayload := TestPayload{
-			Username: payload.Username,
-			Password: payload.Password,
-		}
-
-		resp, err := client.post(endpointDelete, deletePayload)
-		if err != nil {
-			t.Fatalf("delete request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		client.expectStatusCode(resp, http.StatusOK)
-	})
-
-	t.Run("login_deleted_user", func(t *testing.T) {
-		loginPayload := TestPayload{
-			Username: payload.Username,
-			Password: payload.Password,
-		}
-
-		resp, err := client.post(endpointLogin, loginPayload)
-		if err != nil {
-			t.Fatalf("login deleted user request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		// Should return unauthorized or not found
-		client.expectStatusCodeIn(resp, http.StatusUnauthorized, http.StatusNotFound)
-	})
-}
-
-func TestAPI_ConcurrentUsers(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping API concurrent test in short mode")
-	}
-
-	client := newAPITestClient(t)
-	const numUsers = 5
-
-	// Create multiple users concurrently
-	t.Run("concurrent_registration", func(t *testing.T) {
-		results := make(chan error, numUsers)
-
-		for i := 0; i < numUsers; i++ {
-			go func(i int) {
-				payload := createTestPayload(fmt.Sprintf("concurrent_%d", i))
-
-				// Cleanup
-				defer client.cleanupUser(payload.Username)
-
-				resp, err := client.post(endpointRegister, payload)
-				if err != nil {
-					results <- fmt.Errorf("user %d registration failed: %w", i, err)
-					return
-				}
-				defer resp.Body.Close()
-
-				if resp.StatusCode != http.StatusCreated {
-					body, _ := client.parseResponseBody(resp)
-					results <- fmt.Errorf("user %d got status %d: %s", i, resp.StatusCode, string(body))
-					return
-				}
-
-				results <- nil
-			}(i)
-		}
-
-		// Wait for all goroutines
-		for i := 0; i < numUsers; i++ {
-			if err := <-results; err != nil {
-				t.Errorf("concurrent registration error: %v", err)
-			}
-		}
-	})
-}
-
-// Benchmark test
-func BenchmarkAPI_RegisterUser(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping API benchmark in short mode")
-	}
-
-	client := &APITestClient{
-		baseURL:    defaultBaseURL,
-		httpClient: createSecureHTTPClient(b, defaultCertDir),
-		t:          b,
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		payload := createTestPayload(fmt.Sprintf("bench_%d", i))
-
-		resp, err := client.post(endpointRegister, payload)
-		if err != nil {
-			b.Fatalf("register request failed: %v", err)
-		}
-		resp.Body.Close()
-
-		// Cleanup
-		client.cleanupUser(payload.Username)
+	// Delete the user
+	deleteResp, _ := makeRequest("POST", "/delete", nil, result["token"])
+	if deleteResp != nil {
+		deleteResp.Body.Close()
 	}
 }

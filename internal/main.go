@@ -13,70 +13,78 @@ import (
 )
 
 type Server struct {
-	cassandra  *db.CassandraRepo
-	redis      *db.RedisRepo
+	userRepo   db.UserRepository
+	userCache  db.UserCache
 	jwtmanager *JWTManager
 }
 
 func NewServer() (*Server, error) {
-	username := os.Getenv("cass_username")
-	password := os.Getenv("cass_password")
-	keyspace := os.Getenv("cass_keyspace")
+	// Default credentials if environment variables not set
+	username := getEnvOrDefault("CASS_USERNAME", "backend")
+	password := getEnvOrDefault("CASS_PASSWORD", "BPass0319")
+	keyspace := getEnvOrDefault("CASS_KEYSPACE", "cass_keyspace")
 
-	if username == "" || password == "" || keyspace == "" {
-		username = "backend"
-		password = "BPass0319"
-		keyspace = "cass_keyspace"
-	}
-
-	cConfig := db.NewCassandraConfig(username, password, keyspace)
-	cassandra, err := db.NewCassandraRepo(cConfig)
+	userRepo, err := db.NewCassandraRepo(db.NewCassandraConfig(username, password, keyspace))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Cassandra: %w", err)
 	}
 
-	password = os.Getenv("redis_password")
-	if password == "" {
-		password = "RPass0319"
-	}
-
-	rConfig := db.NewRedisConfig(password)
-	redis, err := db.NewRedisRepo(rConfig)
+	redisPassword := getEnvOrDefault("REDIS_PASSWORD", "RPass0319")
+	userCache, err := db.NewRedisRepo(db.NewRedisConfig(redisPassword))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Redis: %w", err)
 	}
 
-	jwtManager := NewJWTManager()
-
 	return &Server{
-		cassandra:  cassandra,
-		redis:      redis,
-		jwtmanager: jwtManager,
+		userRepo:   userRepo,
+		userCache:  userCache,
+		jwtmanager: NewJWTManager(),
 	}, nil
 }
 
-func (s *Server) login(ctx context.Context, cred *db.Credentials) (string, error) {
-	got, err := s.redis.Get(ctx, cred)
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func (s *Server) loginCheck(ctx context.Context, cred *db.Credentials) (*db.User, error) {
+	// Try Redis first, fallback to Cassandra
+	user, err := s.userCache.Get(ctx, cred.Username)
 	if err != nil && !strings.Contains(err.Error(), "incorrect password") {
-		got, err = s.cassandra.GetUser(ctx, cred)
+		user, err = s.userRepo.GetUser(ctx, cred.Username)
 	}
-
 	if err != nil {
-		return "", fmt.Errorf("server get: %w", err)
+		return nil, err
+	}
+	if !db.CheckPasswordHash(cred.Password, user.Password) {
+		return nil, errors.New("unauthorized: incorrect password")
 	}
 
-	jwt, err := s.jwtmanager.CreateToken(got.Username)
+	s.userCache.Add(ctx, user)
+	return user, nil
+}
 
+func (s *Server) login(ctx context.Context, cred *db.Credentials) (string, error) {
+	_, err := s.loginCheck(ctx, cred)
 	if err != nil {
-		return "", fmt.Errorf("server jwt: %w", err)
+		return "", err
 	}
 
-	s.redis.Add(ctx, got)
+	jwt, err := s.jwtmanager.CreateToken(cred.Username)
+	if err != nil {
+		return "", err
+	}
+
 	return jwt, nil
 }
 
 func (s *Server) register(ctx context.Context, user *db.User) error {
-	ok, err := s.cassandra.UsernameExists(ctx, user.Username)
+	ok, err := s.userCache.Exists(ctx, user.Username)
+	if err != nil || !ok {
+		ok, err = s.userRepo.UsernameExists(ctx, user.Username)
+	}
 	if err != nil {
 		return err
 	}
@@ -84,130 +92,135 @@ func (s *Server) register(ctx context.Context, user *db.User) error {
 		return errors.New("validation: username exists")
 	}
 
-	err = s.cassandra.AddUser(ctx, user)
-	if err != nil {
-		return fmt.Errorf("server post: %w", err)
+	if err := s.userRepo.AddUser(ctx, user); err != nil {
+		return err
 	}
 
-	s.redis.Add(ctx, user)
+	s.userCache.Add(ctx, user)
 	return nil
 }
 
+// Helper functions for handling requests
 type Payload map[string]interface{}
 
 func parseJSON(r *http.Request) (Payload, error) {
 	var payload Payload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		return nil, fmt.Errorf("json: %w", err)
+		return nil, err
 	}
 	return payload, nil
 }
 
+func (p Payload) getString(key string) string {
+	if val, ok := p[key].(string); ok {
+		return val
+	}
+	return ""
+}
+
+func (p Payload) getInt(key string, defaultVal int) int {
+	if val, ok := p[key].(int); ok {
+		return val
+	}
+	return defaultVal
+}
+
 func (p Payload) credentials() *db.Credentials {
-	username, ok := p["username"].(string)
-	if !ok {
+	username := p.getString("username")
+	password := p.getString("password")
+	if username == "" || password == "" {
 		return nil
 	}
-
-	password, ok := p["password"].(string)
-	if !ok {
-		return nil
-	}
-
-	return &db.Credentials{
-		Username: username,
-		Password: password,
-	}
+	return &db.Credentials{Username: username, Password: password}
 }
 
 func (p Payload) user() *db.User {
-	email, ok := p["email"].(string)
-	if !ok {
-		email = ""
-	}
-
 	cred := p.credentials()
 	if cred == nil {
 		return nil
 	}
 
-	category, ok := p["category"].(int)
-	if !ok {
-		category = -1
-	}
-
 	return &db.User{
 		Credentials: cred,
-		Email:       email,
-		Category:    category,
+		Email:       p.getString("email"),
+		Category:    p.getInt("category", -1),
 	}
 }
 
+// Token validation helper
+func (s *Server) validateToken(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		return "", errors.New("missing or invalid authorization header")
+	}
+
+	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+	claims, err := s.jwtmanager.ValidateToken(tokenStr)
+	if err != nil {
+		return "", err
+	}
+
+	return claims.Username, nil
+}
+
+// HTTP Handlers
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "login: invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	payload, err := parseJSON(r)
 	if err != nil {
-		http.Error(w, "login: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	cred := payload.credentials()
 	if cred == nil {
-		http.Error(w, "login: invalid request", http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	token, err := s.login(r.Context(), cred)
 	if err != nil {
+		log.Printf("login: %v", err)
 		if strings.Contains(err.Error(), "unauthorized") {
-			http.Error(w, "login: "+err.Error(), http.StatusUnauthorized)
-		} else if strings.Contains(err.Error(), "internal") {
-			fmt.Println(err)
-			http.Error(w, "Could not log in", http.StatusInternalServerError)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		} else {
-			fmt.Println("unknown: ", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	response := map[string]string{"token": token}
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "register: invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	payload, err := parseJSON(r)
 	if err != nil {
-		http.Error(w, "register: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	user := payload.user()
 	if user == nil {
-		http.Error(w, "register: invalid request", http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	if err := s.register(r.Context(), user); err != nil {
+		log.Printf("register: %v", err)
 		if strings.Contains(err.Error(), "validation:") {
-			http.Error(w, "register: "+err.Error(), http.StatusBadRequest)
-		} else if strings.Contains(err.Error(), "internal") {
-			fmt.Println(err)
-			http.Error(w, "Failed to add user", http.StatusInternalServerError)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 		} else {
-			fmt.Println("unknown: ", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -218,132 +231,132 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "update: invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	username, err := s.validateToken(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	payload, err := parseJSON(r)
 	if err != nil {
-		http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
-	user := payload.user()
-	if user == nil {
-		http.Error(w, "update: invalid request", http.StatusBadRequest)
+	password := payload.getString("password")
+	if password == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	password, ok := payload["old_password"].(string)
-	if !ok {
-		password = user.Password
+	user, err := s.loginCheck(r.Context(), db.NewCredentials(username, password))
+	if err != nil {
+		log.Printf("update: %v", err)
+		if strings.Contains(err.Error(), "unauthorized") {
+			http.Error(w, "unauthorized: "+err.Error(), http.StatusUnauthorized)
+		} else if strings.Contains(err.Error(), "validation") {
+			http.Error(w, "validation: "+err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
 	}
 
-	if ok && password == user.Password {
+	newPassword := payload.getString("new_password")
+	if newPassword != "" && newPassword == password {
 		http.Error(w, "New password cannot be the same as the old one", http.StatusBadRequest)
 		return
 	}
 
-	if err := s.cassandra.UpdateUser(r.Context(), user, password); err != nil {
+	email := payload.getString("email")
+	if email == "" {
+		email = user.Email
+	}
+
+	category := payload.getInt("category", user.Category)
+
+	updatedUser := db.NewUser(username, newPassword, email)
+	updatedUser.Category = category
+
+	if err := s.userRepo.UpdateUser(r.Context(), updatedUser); err != nil {
+		log.Printf("Update user error: %v", err)
 		if strings.Contains(err.Error(), "unauthorized") {
-			http.Error(w, "update: "+err.Error(), http.StatusUnauthorized)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		} else if strings.Contains(err.Error(), "validation") {
-			http.Error(w, "update: "+err.Error(), http.StatusBadRequest)
-		} else if strings.Contains(err.Error(), "internal") {
-			fmt.Println(err)
-			http.Error(w, "Failed to update user", http.StatusInternalServerError)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 		} else {
-			fmt.Println("unknown: ", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return
 	}
 
-	s.redis.Add(r.Context(), user)
+	s.userCache.Add(r.Context(), user)
 	w.Write([]byte("User updated successfully"))
 }
 
 func (s *Server) handleGetAdsCategory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-		http.Error(w, "Missing or invalid Authorization header", http.StatusUnauthorized)
-		return
-	}
-
-	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-
-	claims, err := s.jwtmanager.ValidateToken(tokenStr)
+	username, err := s.validateToken(r)
 	if err != nil {
-		http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// 3. Use claims info (e.g., claims.Username)
-	log.Printf("Authenticated user: %s", claims.Username)
-
-	user, err := s.cassandra.GetUser(r.Context(), &db.Credentials{Username: claims.Username, Password: ""})
-
+	user, err := s.userCache.Get(r.Context(), username)
 	if err != nil {
-		http.Error(w, "Failed to get user", http.StatusInternalServerError)
+		user, err = s.userRepo.GetUser(r.Context(), username)
+	}
+	if err != nil {
+		log.Printf("Get user error: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	category := user.Category
+	s.userCache.Extend(r.Context(), username)
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	response := map[string]int{"category": category}
-	json.NewEncoder(w).Encode(response)
-	w.Write([]byte("User category retrieved successfully"))
+	json.NewEncoder(w).Encode(map[string]int{"category": user.Category})
 }
 
 func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "delete: invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	payload, err := parseJSON(r)
+	username, err := s.validateToken(r)
 	if err != nil {
-		http.Error(w, "delete: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	username, ok := payload["username"].(string)
-	if !ok {
-		http.Error(w, "delete: invalid request", http.StatusBadRequest)
+	if err := s.userRepo.DeleteUser(r.Context(), username); err != nil {
+		log.Printf("Delete user error: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	if err := s.cassandra.DeleteUser(r.Context(), username); err != nil {
-		if strings.Contains(err.Error(), "internal") {
-			fmt.Println(err)
-			http.Error(w, "Failed to delete user", http.StatusInternalServerError)
-		} else {
-			fmt.Println("unknown: ", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	s.redis.Delete(r.Context(), username)
+	s.userCache.Delete(r.Context(), username)
 	w.Write([]byte("User deleted successfully"))
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	rStats, err := s.redis.Stats(r.Context())
+	rStats, err := s.userCache.Stats(r.Context())
 	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "Failed to get cache stats", http.StatusInternalServerError)
+		log.Printf("Stats error: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -356,23 +369,23 @@ func main() {
 		log.Fatalf("Server initialization failed: %v", err)
 	}
 
+	routes := map[string]http.HandlerFunc{
+		"/v1/login":    server.handleLogin,
+		"/v1/register": server.handleRegister,
+		"/v1/update":   server.handleUpdateUser,
+		"/v1/delete":   server.handleDeleteUser,
+		"/v1/stats":    server.handleStats,
+		"/v1/get_ads":  server.handleGetAdsCategory,
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/login", server.handleLogin)
-	mux.HandleFunc("/v1/register", server.handleRegister)
-	mux.HandleFunc("/v1/update", server.handleUpdateUser)
-	mux.HandleFunc("/v1/delete", server.handleDeleteUser)
-	mux.HandleFunc("/v1/stats", server.handleStats)
-	mux.HandleFunc("/v1/get_ads", server.handleGetAdsCategory)
+	for path, handler := range routes {
+		mux.HandleFunc(path, handler)
+	}
 
 	port := ":8443"
+	certDir := getEnvOrDefault("TLS_CERT_DIR", "../certs")
+
 	fmt.Printf("Server starting on port %s\n", port)
-
-	certDir := os.Getenv("tls_cert_dir")
-	if certDir == "" {
-		certDir = "../certs"
-	}
-
-	if err := http.ListenAndServeTLS(port, certDir+"/server.crt", certDir+"/server.key", mux); err != nil {
-		log.Fatalf("server listen: %v", err)
-	}
+	log.Fatal(http.ListenAndServeTLS(port, certDir+"/server.crt", certDir+"/server.key", mux))
 }

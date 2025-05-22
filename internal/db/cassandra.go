@@ -9,15 +9,52 @@ import (
 	"github.com/gocql/gocql"
 )
 
+var (
+	// Error definitions
+	ErrSessionNotInitialized = errors.New("session: cassandra not initialized")
+	ErrUserNotFound          = errors.New("not found: user not found")
+	ErrDatabaseError         = errors.New("internal: database error")
+	ErrUsernameExists        = errors.New("validation: username already exists")
+	ErrUsernameNotExists     = errors.New("validation: username does not exist")
+	ErrInvalidEmail          = errors.New("validation: invalid email")
+	ErrPasswordProcessing    = errors.New("validation: password processing failed")
+	ErrUserCreationFailed    = errors.New("validation: user creation failed")
+	ErrUpdateFailed          = errors.New("update failed")
+	ErrDeletionFailed        = errors.New("internal: deletion failed")
+)
+
 // CassandraConfig holds the configuration for Cassandra connection
 type CassandraConfig struct {
-	username string
-	password string
+	Username       string
+	Password       string
+	Keyspace       string
+	Hosts          []string
+	Timeout        time.Duration
+	ConnectTimeout time.Duration
+}
 
-	keyspace       string
-	hosts          []string
-	timeout        time.Duration
-	connectTimeout time.Duration
+// NewCassandraConfig creates a new configuration with defaults
+func NewCassandraConfig(username, password, keyspace string) *CassandraConfig {
+	return &CassandraConfig{
+		Username:       username,
+		Password:       password,
+		Keyspace:       keyspace,
+		Hosts:          []string{"localhost"},
+		Timeout:        5 * time.Second,
+		ConnectTimeout: 10 * time.Second,
+	}
+}
+
+// UserRepository defines the interface for database operations
+type UserRepository interface {
+	Health(ctx context.Context) error
+	GetUser(ctx context.Context, username string) (*User, error)
+	AddUser(ctx context.Context, user *User) error
+	UpdateUser(ctx context.Context, user *User) error
+	DeleteUser(ctx context.Context, username string) error
+	UsernameExists(ctx context.Context, username string) (bool, error)
+	Stats(ctx context.Context) (map[string]interface{}, error)
+	Close()
 }
 
 // CassandraRepo is a wrapper around the Cassandra connection
@@ -26,32 +63,19 @@ type CassandraRepo struct {
 	config  *CassandraConfig
 }
 
-func NewCassandraConfig(username, password, keyspace string) *CassandraConfig {
-	hosts := []string{"localhost"}
+var _ UserRepository = (*CassandraRepo)(nil)
 
-	return &CassandraConfig{
-		username: username,
-		password: password,
-
-		keyspace:       keyspace,
-		hosts:          hosts,
-		timeout:        5 * time.Second,
-		connectTimeout: 10 * time.Second,
-	}
-}
-
-func NewCassandraRepo(config *CassandraConfig) (*CassandraRepo, error) {
-	cluster := gocql.NewCluster(config.hosts...)
-	cluster.Keyspace = config.keyspace
+// NewCassandraRepo creates a new Cassandra UserRepository
+func NewCassandraRepo(config *CassandraConfig) (UserRepository, error) {
+	cluster := gocql.NewCluster(config.Hosts...)
+	cluster.Keyspace = config.Keyspace
 	cluster.Consistency = gocql.Quorum
-
 	cluster.Authenticator = gocql.PasswordAuthenticator{
-		Username: config.username,
-		Password: config.password,
+		Username: config.Username,
+		Password: config.Password,
 	}
-
-	cluster.Timeout = config.timeout
-	cluster.ConnectTimeout = config.connectTimeout
+	cluster.Timeout = config.Timeout
+	cluster.ConnectTimeout = config.ConnectTimeout
 
 	session, err := cluster.CreateSession()
 	if err != nil {
@@ -64,40 +88,62 @@ func NewCassandraRepo(config *CassandraConfig) (*CassandraRepo, error) {
 	}, nil
 }
 
-func (c *CassandraRepo) Health(ctx context.Context) error {
+// ensureSession checks if the session is initialized
+func (c *CassandraRepo) ensureSession() error {
 	if c.session == nil {
-		return errors.New("session: session is nil")
+		return ErrSessionNotInitialized
+	}
+	return nil
+}
+
+// Health checks if the connection to Cassandra is working
+func (c *CassandraRepo) Health(ctx context.Context) error {
+	if err := c.ensureSession(); err != nil {
+		return err
 	}
 
-	var test string
-	if err := c.session.Query("SELECT release_version FROM system.local").WithContext(ctx).Scan(&test); err != nil {
+	var version string
+	if err := c.session.Query("SELECT release_version FROM system.local").
+		WithContext(ctx).Scan(&version); err != nil {
 		return fmt.Errorf("health: %w", err)
 	}
 
 	return nil
 }
 
-func (c *CassandraRepo) GetUser(ctx context.Context, cred *Credentials) (*User, error) {
-	user := &User{}
-	user.Credentials = &Credentials{}
-
-	if err := c.session.Query(
-		"SELECT username, password, email, category FROM users WHERE username = ? LIMIT 1",
-		cred.Username).WithContext(ctx).Scan(&user.Username, &user.Password, &user.Email, &user.Category); err != nil {
-		if err == gocql.ErrNotFound {
-			return nil, errors.New("not found: user not found")
-		}
-		return nil, errors.New("internal: database error")
+// GetUser retrieves a user by username
+func (c *CassandraRepo) GetUser(ctx context.Context, username string) (*User, error) {
+	if err := c.ensureSession(); err != nil {
+		return nil, err
 	}
 
-	user.Password = cred.Password
+	user := &User{Credentials: &Credentials{}}
+
+	err := c.session.Query(
+		"SELECT username, password, email, category FROM users WHERE username = ? LIMIT 1",
+		username).WithContext(ctx).Scan(
+		&user.Username, &user.Password, &user.Email, &user.Category)
+
+	if err != nil {
+		if err == gocql.ErrNotFound {
+			return nil, ErrUserNotFound
+		}
+		return nil, ErrDatabaseError
+	}
+
 	return user, nil
 }
 
+// AddUser adds a new user to the database
 func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
-	if user.Email == "" {
-		return fmt.Errorf("validation: invalid email")
+	if err := c.ensureSession(); err != nil {
+		return err
 	}
+
+	if user.Email == "" {
+		return ErrInvalidEmail
+	}
+
 	if err := ValidUser(user); err != nil {
 		return fmt.Errorf("validation: %w", err)
 	}
@@ -108,80 +154,70 @@ func (c *CassandraRepo) AddUser(ctx context.Context, user *User) error {
 		return err
 	}
 	if exists {
-		return errors.New("validation: username already exists")
+		return ErrUsernameExists
 	}
 
 	// Hash password before storing
 	hashedPassword, err := HashPassword(user.Password)
 	if err != nil {
-		return errors.New("validation: password processing failed")
+		return ErrPasswordProcessing
 	}
 
 	if err := c.session.Query(
 		"INSERT INTO users (username, password, email, category) VALUES (?, ?, ?, ?)",
-		user.Username, hashedPassword, user.Email, user.Category).WithContext(ctx).Exec(); err != nil {
-		return errors.New("validation: user creation failed")
+		user.Username, hashedPassword, user.Email, user.Category).
+		WithContext(ctx).Exec(); err != nil {
+		return ErrUserCreationFailed
 	}
 
 	return nil
 }
 
-func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User, oldPassword string) error {
-	if err := ValidUser(user); err != nil {
-		return fmt.Errorf("validation: %w", err)
-	}
-
-	// Validate password
-	old, err := c.GetUser(ctx, NewCredentials(user.Username, oldPassword))
-	if err != nil {
+// UpdateUser updates an existing user
+func (c *CassandraRepo) UpdateUser(ctx context.Context, user *User) error {
+	if err := c.ensureSession(); err != nil {
 		return err
-	}
-
-	email := user.Email
-	if email == "" {
-		email = old.Email
-	}
-
-	category := user.Category
-	if category < 0 || category > 3 {
-		category = old.Category
-	}
-
-	// Hash new password
-	hashedPassword, err := HashPassword(user.Password)
-	if err != nil {
-		return errors.New("internal: password processing failed")
 	}
 
 	if err := c.session.Query(
 		"UPDATE users SET password = ?, email = ?, category = ? WHERE username = ?",
-		hashedPassword, email, category, user.Username).WithContext(ctx).Exec(); err != nil {
-		return errors.New("update failed")
+		user.Password, user.Email, user.Category, user.Username).
+		WithContext(ctx).Exec(); err != nil {
+		return ErrUpdateFailed
 	}
 
 	return nil
 }
 
+// DeleteUser deletes a user by username
 func (c *CassandraRepo) DeleteUser(ctx context.Context, username string) error {
-	ok, err := c.UsernameExists(ctx, username)
+	if err := c.ensureSession(); err != nil {
+		return err
+	}
+
+	exists, err := c.UsernameExists(ctx, username)
 	if err != nil {
 		return err
 	}
-	if !ok {
-		return errors.New("validation: username does not exist")
+	if !exists {
+		return ErrUsernameNotExists
 	}
 
 	if err := c.session.Query(
-		"DELETE FROM users WHERE username = ?",
-		username).WithContext(ctx).Exec(); err != nil {
-		return errors.New("internal: deletion failed")
+		"DELETE FROM users WHERE username = ?", username).
+		WithContext(ctx).Exec(); err != nil {
+		return ErrDeletionFailed
 	}
 
 	return nil
 }
 
-// Method to check if username exists (for registration)
+// UsernameExists checks if a username exists
 func (c *CassandraRepo) UsernameExists(ctx context.Context, username string) (bool, error) {
+	if err := c.ensureSession(); err != nil {
+		return false, err
+	}
+
 	if len(username) < MinUsernameLength {
 		return false, errors.New("validation: username required")
 	}
@@ -190,29 +226,34 @@ func (c *CassandraRepo) UsernameExists(ctx context.Context, username string) (bo
 	}
 
 	var dummy string
-	if err := c.session.Query(
-		"SELECT username FROM users WHERE username = ? LIMIT 1",
-		username).WithContext(ctx).Scan(&dummy); err != nil {
+	err := c.session.Query(
+		"SELECT username FROM users WHERE username = ? LIMIT 1", username).
+		WithContext(ctx).Scan(&dummy)
+
+	if err != nil {
 		if err == gocql.ErrNotFound {
 			return false, nil
 		}
-		return false, errors.New("internal: database error")
+		return false, ErrDatabaseError
 	}
 
 	return true, nil
 }
 
-// Attempts to retrieve stats from system.stats table
+// Stats retrieves statistics from the system.stats table
 func (c *CassandraRepo) Stats(ctx context.Context) (map[string]interface{}, error) {
+	if err := c.ensureSession(); err != nil {
+		return nil, err
+	}
+
 	var tableName string
 	var sstables int
-	var readLatency float64
-	var writeLatency float64
+	var readLatency, writeLatency float64
 
-	err := c.session.Query(`SELECT table_name, sstables_count, read_latency_avg,
-	write_latency_avg FROM system.stats WHERE table_name = ?`, "users").
-		WithContext(ctx).
-		Scan(&tableName, &sstables, &readLatency, &writeLatency)
+	err := c.session.Query(`
+		SELECT table_name, sstables_count, read_latency_avg, write_latency_avg
+		FROM system.stats WHERE table_name = ?`, "users").
+		WithContext(ctx).Scan(&tableName, &sstables, &readLatency, &writeLatency)
 
 	if err != nil {
 		return nil, err
@@ -226,6 +267,7 @@ func (c *CassandraRepo) Stats(ctx context.Context) (map[string]interface{}, erro
 	}, nil
 }
 
+// Close closes the Cassandra session
 func (c *CassandraRepo) Close() {
 	if c.session != nil {
 		c.session.Close()

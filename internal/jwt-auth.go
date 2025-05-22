@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"os"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type JWTManager struct {
@@ -13,7 +14,7 @@ type JWTManager struct {
 	duration  time.Duration
 }
 
-type MyCustomClaims struct {
+type JWTClaims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
@@ -33,7 +34,7 @@ func NewJWTManager() *JWTManager {
 
 // CreateToken generates a signed JWT for the given username
 func (j *JWTManager) CreateToken(username string) (string, error) {
-	claims := MyCustomClaims{
+	claims := JWTClaims{
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.duration)),
@@ -47,8 +48,8 @@ func (j *JWTManager) CreateToken(username string) (string, error) {
 }
 
 // ValidateToken verifies the JWT string and returns the claims
-func (j *JWTManager) ValidateToken(tokenStr string) (*MyCustomClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &MyCustomClaims{}, func(token *jwt.Token) (any, error) {
+func (j *JWTManager) ValidateToken(tokenStr string) (*JWTClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -59,7 +60,7 @@ func (j *JWTManager) ValidateToken(tokenStr string) (*MyCustomClaims, error) {
 		return nil, err
 	}
 
-	if claims, ok := token.Claims.(*MyCustomClaims); ok && token.Valid {
+	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
 		return claims, nil
 	}
 
