@@ -1,0 +1,108 @@
+/* Settings Modal Overlay */
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Settings Modal Container */
+.settings-modal-container {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 350px;
+  max-width: 450px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+/* Settings Modal Title */
+.settings-modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 8px 0;
+  text-align: center;
+}
+
+/* Settings Modal Subtitle */
+.settings-modal-body {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+  text-align: center;
+}
+
+/* Password Input Field */
+.settings-password-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+  background-color: white;
+  box-sizing: border-box;
+  margin-bottom: 20px;
+}
+
+.settings-password-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.settings-password-input::placeholder {
+  color: #999;
+}
+
+/* Button Container */
+.settings-modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+/* Confirm Button */
+.settings-modal-confirm {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.settings-modal-confirm:hover {
+  background: #0056b3;
+}
+
+.settings-modal-confirm:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Cancel Button */
+.settings-modal-cancel {
+  background: #f8f9fa;
+  color: #666;
+  border: 1px solid #ddd;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.settings-modal-cancel:hover {
+  background: #e9ecef;
+}
