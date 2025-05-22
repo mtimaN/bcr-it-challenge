@@ -1,8 +1,7 @@
+import React, { useState } from 'react';
 import Balance from './Balance'
 import Transactions from './Transactions'
 import SpendingVisual from './SpendingVisual';
-
-import React, { useState } from 'react';
 
 import './Home.css'
 

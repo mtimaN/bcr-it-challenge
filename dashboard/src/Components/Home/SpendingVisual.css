@@ -40,12 +40,12 @@
     padding: 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
-  
+
   .tooltip-box.dark {
     background-color: #2a2a2a;
     border-color: #555;
   }
-  
+
   .tooltip-label {
     margin: 0 0 5px 0;
     font-weight: bold;
@@ -53,21 +53,17 @@
     font-size: 0.8vw;
     font-family: 'Open Sans', sans-serif;
   }
-  
+
   .tooltip-label.dark {
     color: #fff;
   }
-  
+
   .tooltip-entry {
     margin: 2px 0;
     font-size: 0.5vw;
     font-weight: 600;
     color: var(--entry-color);
     font-family: 'Open Sans', sans-serif;
-  }
-  
-  .tooltip-entry.dark {
-    /* Optionally, adjust contrast in dark mode if needed */
   }
 
 .axis-tick {

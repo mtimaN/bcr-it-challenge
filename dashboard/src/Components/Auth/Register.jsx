@@ -15,7 +15,9 @@ const Register = ({ lang, setLang, setUserData }) => {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+
   const [email, setEmail] = useState('');
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
@@ -30,14 +32,17 @@ const Register = ({ lang, setLang, setUserData }) => {
     localStorage.setItem('current_theme', theme);
   }, [theme]);
 
+
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
   };
 
+
   const toggleLang = () => {
     setLang(lang === 'RO' ? 'EN' : 'RO');
   };
+
 
   const handleSubmit = async () => {
     try {
@@ -65,6 +70,14 @@ const Register = ({ lang, setLang, setUserData }) => {
           username,
           password
         });
+
+        localStorage.setItem('userData', JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          username,
+          password
+        }));
         
         // Navigate back to login page after successful registration
         navigate('/');
@@ -79,6 +92,7 @@ const Register = ({ lang, setLang, setUserData }) => {
     }
   };
 
+
   const getLangIcon = () => {
     if (lang === 'RO') {
       return theme === 'light' ? roD : roL;
@@ -86,6 +100,7 @@ const Register = ({ lang, setLang, setUserData }) => {
 
     return theme === 'light' ? enD : enL;
   };
+
 
   return (
     <div className="auth-container">

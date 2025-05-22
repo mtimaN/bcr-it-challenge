@@ -332,7 +332,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
   const Modals = () => (
     <>
       {showSettingsModal && (
-        <SettingsModal onClose={() => setShowSettingsModal(false)} userData={userData} />
+        <SettingsModal onClose={() => setShowSettingsModal(false)} userData={userData} setLoggedIn={setLoggedIn}/>
       )}
 
       {showLogoutModal && (

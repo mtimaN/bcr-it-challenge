@@ -1,13 +1,10 @@
+import React, { useState } from 'react';
 import moneyBagDay from '../../assets/home_page/moneyBagDay.png'
 import moneyBagNight from '../../assets/home_page/moneyBagNight.png'
-
 import eyeDay from '../../assets/home_page/eyeDay.png'
 import eyeNight from '../../assets/home_page/eyeNight.png'
-
 import hiddenEyeDay from '../../assets/home_page/hiddenEyeDay.png'
 import hiddenEyeNight from '../../assets/home_page/hiddenEyeNight.png'
-
-import React, { useState } from 'react';
 
 import './Balance.css'
 

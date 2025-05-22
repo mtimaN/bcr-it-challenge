@@ -23,4 +23,3 @@ const ServiceTiles = ({ userCluster }) => {
 };
 
 export default ServiceTiles;
-``

@@ -9,7 +9,7 @@ import enL from '../../assets/nav_bar/enLight.png';
 import sun from '../../assets/nav_bar/dayLogo.png';
 import moon from '../../assets/nav_bar/nightLogo.png';
 
-const Login = ({ lang, setLang, setLoggedIn }) => {
+const Login = ({ lang, setLang, setLoggedIn, setUserData }) => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('current_theme') || 'light');
 
@@ -26,14 +26,17 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
     localStorage.setItem('current_theme', theme);
   }, [theme]);
 
+
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
   };
 
+
   const toggleLang = () => {
     setLang(lang === 'RO' ? 'EN' : 'RO');
   };
+
 
   const handleLogin = async () => {
     try {
@@ -55,6 +58,16 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
 
         localStorage.setItem('jwtToken', token);
 
+        const localUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+
+        setUserData({
+          firstName: localUserData.firstName || '',
+          lastName: localUserData.lastName || '',
+          email: localUserData.email || '',
+          username,
+          password
+        });
+
         setLoggedIn(true);
         navigate('/home');
 
@@ -67,6 +80,7 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
     }
   };
 
+
   const getLangIcon = () => {
     if (lang === 'RO') {
       return theme === 'light' ? roD : roL;
@@ -74,6 +88,7 @@ const Login = ({ lang, setLang, setLoggedIn }) => {
       return theme === 'light' ? enD : enL;
     }
   };
+
 
   return (
     <div className="auth-container">

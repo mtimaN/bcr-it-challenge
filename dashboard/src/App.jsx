@@ -11,6 +11,7 @@ import Register from './Components/Auth/Register';
 const App = () => {
   const current_theme = localStorage.getItem('current_theme');
   const [theme, setTheme] = useState(current_theme ? current_theme : 'light');
+
   const [lang, setLang] = useState(localStorage.getItem('lang') || 'RO');
   const [loggedIn, setLoggedIn] = useState(false);
 

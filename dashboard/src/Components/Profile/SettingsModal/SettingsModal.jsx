@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import './SettingsModal.css';
+import { useNavigate } from 'react-router-dom';
 
-const SettingsModal = ({ onClose, userData }) => {
+const SettingsModal = ({ onClose, userData, setLoggedIn }) => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [oldPasswordInput, setOldPasswordInput] = useState('');
+
   const [newPassword, setNewPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -43,6 +46,12 @@ const SettingsModal = ({ onClose, userData }) => {
       if (response.ok) {
         alert('Parola a fost schimbată cu succes!');
         onClose();
+
+        localStorage.removeItem('jwtToken');
+        setLoggedIn(false);
+        onClose();
+        navigate('/');
+
       } else {
         const errorData = await response.json();
         console.error('Failed to update password:', errorData.error || 'Unknown error');
