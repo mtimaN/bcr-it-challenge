@@ -6,7 +6,7 @@
 .ads-container {
   display: flex;
   gap: 1rem;
-  animation: scrollLeft 20s linear infinite;
+  animation: scrollLeft 40s linear infinite;
   width: max-content;
 }
 
@@ -15,10 +15,9 @@
     transform: translateX(0);
   }
   100% {
-    transform: translateX(-25%);
+    transform: translateX(-50%);
   }
 }
-
 
 .ad-card {
   min-width: 40vw;
@@ -38,7 +37,7 @@
 }
 
 .ad-card h3 {
-  font-size: 2rem;     /* titlul - ~22px */
+  font-size: 2rem;
   font-weight: bold;
   margin: 0.5rem 0 0.25rem 0;
   text-align: center;
@@ -46,7 +45,7 @@
 }
 
 .ad-card p {
-  font-size: 1.8rem;     /* descrierea - ~17.5px */
+  font-size: 1.8rem;
   text-align: center;
   margin: 0;
   color: #444;

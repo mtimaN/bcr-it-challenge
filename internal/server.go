@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"internal/db"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -81,7 +80,7 @@ func (s *Server) rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		clientIP := s.getClientIP(r)
 
 		if !s.rateLimiter.Allow(clientIP) {
-			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+			JSONError(w, "Rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
 
@@ -99,16 +98,6 @@ func (s *Server) loginCheck(ctx context.Context, cred *db.Credentials) (*db.User
 		return nil, err
 	}
 	if !db.CheckPasswordHash(cred.Password, user.Password) {
-		log.Println(cred.Password)
-		h, err := db.HashPassword(cred.Password)
-		if err != nil {
-			panic(err)
-		}
-		hh, err := db.HashPassword(h)
-		if err != nil {
-			panic(err)
-		}
-		log.Printf("hash: %s, rehash: %s; stored: %s", h, hh, user.Password)
 		return nil, errors.New("unauthorized: incorrect password")
 	}
 
@@ -225,4 +214,22 @@ func (s *Server) validateToken(r *http.Request) (string, error) {
 	}
 
 	return claims.Username, nil
+}
+
+func (s *Server) corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173") // or https://localhost:5173
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next(w, r)
+	}
 }
