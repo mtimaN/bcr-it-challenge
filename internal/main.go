@@ -225,12 +225,12 @@ func main() {
 	}
 
 	routes := map[string]http.HandlerFunc{
-		"/v1/login":    server.rateLimitMiddleware(server.handleLogin),
-		"/v1/register": server.rateLimitMiddleware(server.handleRegister),
-		"/v1/update":   server.rateLimitMiddleware(server.handleUpdateUser),
-		"/v1/delete":   server.rateLimitMiddleware(server.handleDeleteUser),
-		"/v1/stats":    server.rateLimitMiddleware(server.handleStats),
-		"/v1/get_ads":  server.rateLimitMiddleware(server.handleGetAdsCategory),
+		"/v1/login":    server.corsMiddleware(server.rateLimitMiddleware(server.handleLogin)),
+		"/v1/register": server.corsMiddleware(server.rateLimitMiddleware(server.handleRegister)),
+		"/v1/update":   server.corsMiddleware(server.rateLimitMiddleware(server.handleUpdateUser)),
+		"/v1/delete":   server.corsMiddleware(server.rateLimitMiddleware(server.handleDeleteUser)),
+		"/v1/stats":    server.corsMiddleware(server.rateLimitMiddleware(server.handleStats)),
+		"/v1/get_ads":  server.corsMiddleware(server.rateLimitMiddleware(server.handleGetAdsCategory)),
 	}
 
 	mux := http.NewServeMux()
