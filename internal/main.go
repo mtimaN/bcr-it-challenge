@@ -45,7 +45,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.recordDBOperation("user_login", "error")
 		log.Printf("login: %v", err)
-
+    
 		if strings.Contains("login: "+err.Error(), "unauthorized") {
 			JSONError(w, err.Error(), http.StatusUnauthorized)
 		} else {
@@ -68,6 +68,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	payload, err := parseJSON(r)
 	if err != nil {
 		s.recordDBOperation("user_register", "error")
+    
 		JSONError(w, "Bad request: invalid json", http.StatusBadRequest)
 		return
 	}
@@ -225,7 +226,6 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	if err := s.userRepo.DeleteUser(r.Context(), username); err != nil {
 		s.recordDBOperation("user_delete", "error")
 		log.Printf("Delete user error: %v", err)
-
 		JSONError(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
