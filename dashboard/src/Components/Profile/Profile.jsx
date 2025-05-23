@@ -21,8 +21,11 @@ import profileIconNight from '../../assets/profile_page/profileIconNight.png'
 // Component Imports
 import LogoutModal from './LogoutModal/LogoutModal';
 import EditModal from './EditModal/EditModal';
+
 import DeleteModal from './DeleteModal/DeleteModal';
 import SettingsModal from './SettingsModal/SettingsModal';
+
+import { useLocation } from 'react-router-dom';
 
 // Library Imports
 import React, { useState, useEffect, useRef } from 'react';

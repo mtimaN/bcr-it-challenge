@@ -37,7 +37,6 @@ const Login = ({ lang, setLang, setLoggedIn, setUserData }) => {
     setLang(lang === 'RO' ? 'EN' : 'RO');
   };
 
-
   const handleLogin = async () => {
     try {
       const response = await fetch('https://localhost:8443/v1/login', {
@@ -109,6 +108,8 @@ const Login = ({ lang, setLang, setLoggedIn, setUserData }) => {
           onClick={toggleTheme}
         />
       </div>
+
+      <p className="login-title">GEORG.IO</p>
 
       {/* Auth box */}
       <div className="auth-box">

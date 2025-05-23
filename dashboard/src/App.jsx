@@ -42,9 +42,9 @@ const App = () => {
             </>
           ) : (
             <>
-              <Route path="/home" element={<Home theme={theme} setTheme={setTheme} />} />
-              <Route path="/discover" element={<Discover theme={theme} setTheme={setTheme} />} />
-              <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme} setLoggedIn={setLoggedIn} userData={userData} />} />
+              <Route path="/home" element={<Home theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />} />
+              <Route path="/discover" element={<Discover theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />} />
+              <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme}  lang={lang} setLang={setLang} setLoggedIn={setLoggedIn} userData={userData} />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </>
           )}
