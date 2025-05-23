@@ -132,6 +132,7 @@
     pointer-events: none; /* disables interaction */
   }
 
+
 /* DARK MODE CONTAINER */
 .account-balance.dark {
     background-color: #1a1a1a;

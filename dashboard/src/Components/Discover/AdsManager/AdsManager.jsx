@@ -2,6 +2,7 @@ import React from 'react';
 import './AdsManager.css';
 import { adsByCluster } from '../Data';
 
+
 const AdsManager = ({ userCluster, lang }) => {
   const ads = adsByCluster[userCluster] || [];
   const adsToDisplay = [...ads, ...ads];

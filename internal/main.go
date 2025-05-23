@@ -68,7 +68,6 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	payload, err := parseJSON(r)
 	if err != nil {
 		s.recordDBOperation("user_register", "error")
-
 		JSONError(w, "Bad request: invalid json", http.StatusBadRequest)
 		return
 	}
@@ -179,6 +178,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	s.recordDBOperation("user_update", "success")
 	s.userCache.Add(r.Context(), updatedUser)
+	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("User updated successfully"))
 }
 
@@ -211,7 +211,7 @@ func (s *Server) handleGetAdsCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodDelete {
 		JSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}

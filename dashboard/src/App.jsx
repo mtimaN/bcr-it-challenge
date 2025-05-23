@@ -1,4 +1,3 @@
-// App.jsx
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -12,8 +11,18 @@ import Register from './Components/Auth/Register';
 const App = () => {
   const current_theme = localStorage.getItem('current_theme');
   const [theme, setTheme] = useState(current_theme ? current_theme : 'light');
+
   const [lang, setLang] = useState(localStorage.getItem('lang') || 'RO');
   const [loggedIn, setLoggedIn] = useState(false);
+
+  // Add state to store user data
+  const [userData, setUserData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    username: '',
+    password: ''
+  });
 
   useEffect(() => {
     localStorage.setItem('current_theme', theme);
@@ -27,15 +36,15 @@ const App = () => {
         <Routes>
           {!loggedIn ? (
             <>
-              <Route path="/" element={<Login lang={lang} setLang={setLang} setLoggedIn={setLoggedIn} />} />
-              <Route path="/register" element={<Register lang={lang} setLang={setLang} />} />
+              <Route path="/" element={<Login lang={lang} setLang={setLang} setLoggedIn={setLoggedIn} setUserData={setUserData} />} />
+              <Route path="/register" element={<Register lang={lang} setLang={setLang} setUserData={setUserData} />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
           ) : (
             <>
               <Route path="/home" element={<Home theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />} />
               <Route path="/discover" element={<Discover theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />} />
-              <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />} />
+              <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme}  lang={lang} setLang={setLang} setLoggedIn={setLoggedIn} userData={userData} />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </>
           )}

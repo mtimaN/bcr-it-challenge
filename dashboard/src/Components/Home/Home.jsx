@@ -3,7 +3,7 @@ import Transactions from './Transactions/Transactions'
 import SpendingVisual from './SpendingVisual/SpendingVisual';
 import SpentChart from './SpentChart/SpentChart'
 
-import React from 'react';
+import React, { useState } from 'react';
 
 import './Home.css'
 

@@ -1,84 +1,124 @@
+// Asset Imports
 import newProfileIconDay from '../../assets/profile_page/newProfileIconDay.png'
 import newProfileIconNight from '../../assets/profile_page/newProfileIconNight.png'
-
 import editPencilDay from '../../assets/profile_page/editPencilDay.png'
 import editPencilNight from '../../assets/profile_page/editPencilNight.png'
-
 import trashCan from '../../assets/profile_page/trashCan.png'
-
 import downCollapseArrowDay from '../../assets/profile_page/downCollapseArrowDay.png'
 import downCollapseArrowNight from '../../assets/profile_page/downCollapseArrowNight.png'
-
 import upCollapseArrowDay from '../../assets/profile_page/upCollapseArrowDay.png'
 import upCollapseArrowNight from '../../assets/profile_page/upCollapseArrowNight.png'
-
 import gradientLightBlue from '../../assets/profile_page/gradientLightBlue.jpg'
-
 import frame from '../../assets/profile_page/frame.png'
-
 import settingsDay from '../../assets/profile_page/settingsDay.png'
 import logoutDay from '../../assets/profile_page/logoutDay.png'
 import bankDay from '../../assets/profile_page/bankDay.png'
 import helpDay from '../../assets/profile_page/helpDay.png'
 import userAgreementDay from '../../assets/profile_page/userAgreementDay.png'
-
-import LogoutModal from './LogoutModal/LogoutModal';
-import EditModal from './EditModal/EditModal';
-import DeleteModal from './DeleteModal/DeleteModal';
-
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-import './Profile.css';
 import profileIconDay from '../../assets/profile_page/profileIconDay.png'
 import profileIconNight from '../../assets/profile_page/profileIconNight.png'
 
-import { useLocation } from 'react-router-dom';  //! date de la register 
+// Component Imports
+import LogoutModal from './LogoutModal/LogoutModal';
+import EditModal from './EditModal/EditModal';
 
+import DeleteModal from './DeleteModal/DeleteModal';
+import SettingsModal from './SettingsModal/SettingsModal';
 
-const Profile = ({ theme, setTheme }) => {
+import { useLocation } from 'react-router-dom';
+
+// Library Imports
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import './Profile.css';
+
+const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
   const navigate = useNavigate();
 
-  const [isGenderOpen, setIsGenderOpen] = useState(false);
-  const [selectedGender, setSelectedGender] = useState('Undisclosed');
-
-  const [isMarriedOpen, setIsMarriedOpen] = useState(false);
-  const [selectedMarried, setSelectedMarried] = useState('Yes');
-
-  const toggleGenderDropdown = () => setIsGenderOpen(prev => !prev);
-  const toggleMarriedDropdown = () => setIsMarriedOpen(prev => !prev);
-
-  const genderRef = useRef(null);
-  const marriedRef = useRef(null);
-
+  // STATE MANAGEMENT
+  
+  // Modal States
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  // autocomplete fields
-  const location = useLocation();     //! ia astea pune le peste scris
-  const {
-    firstName = '',
-    lastName = '',
-    email = '',
-    username = ''
-  } = location.state || {};
+  // User Data States
+  const { firstName = '', lastName = '', email = '', username = '', password = '' } = userData || {};
+  const [userID] = useState(() => Math.floor(10000000 + Math.random() * 90000000));
+  const [editMode, setEditMode] = useState(false);
 
-  // hande logout logic
-  const handleLogout = () => {
-    // Put your real logout logic here
-    console.log('Logged out');
-    setShowLogoutModal(false);
+  // Form Data States
+  const [firstNameState, setFirstName] = useState(firstName);
+  const [lastNameState, setLastName] = useState(lastName);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [emailState, setEmail] = useState(email);
+  const [usernameState] = useState(username);
+  const [county, setCounty] = useState('');
+  const [address, setAddress] = useState('');
+  const [gender, setGender] = useState('');
+  const [marriedStatus, setMarriedStatus] = useState('');
+
+  // API FUNCTIONS
+
+  const handleDeleteAccount = async () => {
+    try {
+      const token = localStorage.getItem('jwtToken');
+
+      const response = await fetch('https://localhost:8443/v1/delete', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Account deleted successfully, now logout
+        localStorage.removeItem('jwtToken');
+        setLoggedIn(false);
+        setShowDeleteModal(false);
+        navigate('/');
+        alert('Account deleted successfully');
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to delete account:', errorData.message || 'Unknown error');
+        alert('Failed to delete account. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error.message);
+      alert('An error occurred. Please try again.');
+    }
   };
+
+  // EVENT HANDLERS
+
+  const handleLogout = () => {
+    localStorage.removeItem('jwtToken');
+    setLoggedIn(false);
+    setShowLogoutModal(false);
+    navigate('/');
+  };
+
+  const handleEditConfirm = (inputPassword) => {
+    if (inputPassword === password) {
+      setShowEditModal(false);
+      setEditMode(true);
+      return true;
+    } else {
+      return false;
+    }
+  };
+
+  const toggleTheme = () => {
+    theme === 'light' ? setTheme('dark') : setTheme('light');
+  };
+
+  // EFFECTS
 
   useEffect(() => {  
     const handleClickOutside = (event) => {
-      if (genderRef.current && !genderRef.current.contains(event.target)) {
-        setIsGenderOpen(false);
-      }
-      if (marriedRef.current && !marriedRef.current.contains(event.target)) {
-        setIsMarriedOpen(false);
-      }
+      // Remove gender and married dropdown logic
     };
   
     document.addEventListener('mousedown', handleClickOutside);
@@ -87,363 +127,243 @@ const Profile = ({ theme, setTheme }) => {
     };
   }, []);
 
-  const [editMode, setEditMode] = useState(false);
-
-  // handle edit logic
-  const handleEditConfirm = (password) => {
-    if (password === '1234') {
-      setShowEditModal(false);
-      setEditMode(true); // ← this triggers the editable state
-    } else {
-      return false;
+  // Update state when userData changes
+  useEffect(() => {
+    if (userData) {
+      setFirstName(userData.firstName || '');
+      setLastName(userData.lastName || '');
+      setEmail(userData.email || '');
     }
-  };
+  }, [userData]);
 
-  const handleDelete = () => {
-    console.log('Account deleted'); // Replace with real delete logic
-    setShowDeleteModal(false);
-  };
+  // RENDER HELPER COMPONENTS
 
-  // info for each field
-  const [firstNameState, setFirstName] = useState(firstName);
-  const [lastNameState, setLastName] = useState(lastName);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [emailState, setEmail] = useState(email);
-  const [usernameState] = useState(username);
-  const [county, setCounty] = useState('');
-  const [address, setAddress] = useState('');
+  const FormField = ({ className, label, value, setValue, required = false, disabled = false }) => (
+    <div className={className}>
+      <p className="search-icon-text">{label} {required && '*'}</p>
+      {editMode && !disabled ? (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="search-icon-info editable"
+        />
+      ) : (
+        <p className="search-icon-info">{value}</p>
+      )}
+    </div>
+  );
 
-    /* change theme logic */
-    const toggle_mode = () => {
-      theme === 'light' ? setTheme('dark') : setTheme('light');
-    };
-  
-    // the magic
-    return (
-      // wrapper for everything
-      <div className="profile-container">  
-          {/* profile card */}
-          <div className="profile-card">
-            {/* Added icon wrapper div */}
-            <div className="icon-wrapper">
-              <img
-                src={theme === 'light' ? newProfileIconDay : newProfileIconNight}
-                alt="Profile"
-                className="profile-icon"
-              />
-            </div>
-            <img
-                src={gradientLightBlue}
-                alt=""
-                className="gradient-blue"
-            />
+  const ProfileCard = () => (
+    <div className="profile-card">
+      <div className="icon-wrapper">
+        <img
+          src={theme === 'light' ? newProfileIconDay : newProfileIconNight}
+          alt="Profile"
+          className="profile-icon"
+        />
+      </div>
+      <img
+        src={gradientLightBlue}
+        alt=""
+        className="gradient-blue"
+      />
+      <p className="profile-card-username">{usernameState}</p>
+      <p className="profile-card-ID">ID: {userID}</p>
+      <img
+        src={frame}
+        alt=""
+        className="qr-code"
+      />
+      <p className="profile-card-join-date">S-a alăturat în mai 2025</p>
+    </div>
+  );
 
-            {/* profile username */}
-            <p className="profile-card-username">{usernameState}</p>
+  const PersonalInformation = () => (
+    <div className={`general-information ${editMode ? 'edit-mode' : ''}`}>
+      {editMode && (
+        <button
+          className="save-button"
+          onClick={() => setEditMode(false)}
+        >
+          Salvare
+        </button>
+      )}
 
-            {/* account ID */}
-            <p className="profile-card-ID">ID: 30128127</p>
+      <p className="general-information-title">INFORMAȚII PERSONALE</p>
 
-            <img
-                src={frame}
-                alt=""
-                className="qr-code"
-            />
+      <img
+        src={gradientLightBlue}
+        alt=""
+        className="gradient-blue-info"
+      />
 
-            {/* joined date */}
-            <p className="profile-card-join-date">S-a alăturat în mai 2025</p>
-            </div>
+      <img
+        src={theme === 'light' ? editPencilDay : editPencilNight}
+        alt="Edit"
+        className="edit-icon"
+        onClick={() => {
+          if (!editMode) setShowEditModal(true);
+        }}
+        style={{ cursor: editMode ? 'default' : 'pointer', opacity: editMode ? 0.5 : 1 }}
+      />
 
-          {/* general info section */}
-          {editMode && <div className="edit-overlay"></div>}
-          <div className={`general-information ${editMode ? 'edit-mode' : ''}`}>
-            {/* save edit changes button */}
-            {editMode && (
-              <button
-                className="save-button"
-                onClick={() => setEditMode(false)}
-              >
-                Salvare
-              </button>
-            )}
+      <FormField
+        className="search-icon-first-name"
+        label="Prenume"
+        value={firstNameState}
+        setValue={setFirstName}
+        required={true}
+      />
 
-            <p className="general-information-title">INFORMAȚII PERSONALE</p>
+      <FormField
+        className="search-icon-last-name"
+        label="Nume"
+        value={lastNameState}
+        setValue={setLastName}
+        required={true}
+      />
 
-            <img
-                src={gradientLightBlue}
-                alt=""
-                className="gradient-blue-info"
-            />
+      <FormField
+        className="search-icon-phone-number"
+        label="Număr de telefon"
+        value={phoneNumber}
+        setValue={setPhoneNumber}
+        required={true}
+      />
 
-            {/* edit pencil icon */}
-            <img
-              src={theme === 'light' ? editPencilDay : editPencilNight}
-              alt="Edit"
-              className="edit-icon"
-              onClick={() => {
-                if (!editMode) setShowEditModal(true);
-              }}
-              style={{ cursor: editMode ? 'default' : 'pointer', opacity: editMode ? 0.5 : 1 }}
-            />
+      <FormField
+        className="search-icon-email"
+        label="Adresă de email"
+        value={emailState}
+        setValue={setEmail}
+        required={true}
+      />
 
-            {/* first name */}
-            <div className="search-icon-first-name">
-              <p className="search-icon-text">Prenume *</p>
-              {editMode ? (
-                <input
-                  type="text"
-                  value={firstNameState}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="search-icon-info editable"
-                />
-              ) : (
-                <p className="search-icon-info">{firstNameState}</p>
-              )}
-            </div>
-            
-            {/* last name */}
-            <div className="search-icon-last-name">
-              <p className="search-icon-text">Nume *</p>
-              {editMode ? (
-                <input
-                  type="text"
-                  value={lastNameState}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="search-icon-info editable"
-                />
-              ) : (
-                <p className="search-icon-info">{lastNameState}</p>
-              )}
-            </div>
+      <FormField
+        className="search-icon-gender"
+        label="Gen"
+        value={gender}
+        setValue={setGender}
+      />
 
-            {/* email address */}
-            <div className="search-icon-email">
-              <p className="search-icon-text">Adresă de email *</p>
-              {editMode ? (
-                <input
-                  type="text"
-                  value={emailState}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="search-icon-info editable"
-                />
-              ) : (
-                <p className="search-icon-info">{emailState}</p>
-              )}
-            </div>
+      <FormField
+        className="search-icon-married"
+        label="Căsătorit/ă"
+        value={marriedStatus}
+        setValue={setMarriedStatus}
+      />
 
-            {/* phone number */}
-            <div className="search-icon-phone-number">
-              <p className="search-icon-text">Număr de telefon *</p>
-              {editMode ? (
-                <input
-                  type="text"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="search-icon-info editable"
-                />
-              ) : (
-                <p className="search-icon-info">{phoneNumber}</p>
-              )}
-            </div>
+      <FormField
+        className="search-icon-county"
+        label="Județ"
+        value={county}
+        setValue={setCounty}
+        required={true}
+      />
 
-            {/* gender */}
-            <div className="search-icon-gender" ref={genderRef}>
-              <p className="search-icon-text">Gen</p>
-              <p className={`search-icon-info ${editMode ? 'text-shifted' : ''}`}>
-                {selectedGender}
-              </p>
-              {editMode && (
-                <img
-                  src={
-                    theme === 'light'
-                      ? (isGenderOpen ? upCollapseArrowDay : downCollapseArrowDay)
-                      : (isGenderOpen ? upCollapseArrowNight : downCollapseArrowNight)
-                  }
-                  alt=""
-                  className="arrow-icon"
-                  onClick={toggleGenderDropdown}
-                />
-              )}
-              {editMode && isGenderOpen && (
-                <ul className="dropdown-menu">
-                  {['Bărbat', 'Femeie', 'Nespecificat'].map(option => (
-                    <li
-                      key={option}
-                      className={`dropdown-item ${option.toLowerCase()}`}
-                      onClick={() => {
-                        setSelectedGender(option);
-                        setIsGenderOpen(false);
-                      }}
-                    >
-                      {option}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            
-            {/* married status */}
-            <div className="search-icon-married" ref={marriedRef}>
-              <p className="search-icon-text">Căsătorit/ă</p>
-              <p className={`search-icon-info ${editMode ? 'text-shifted' : ''}`}>
-                {selectedMarried}
-              </p>
-              {editMode && (
-                <img
-                  src={
-                    theme === 'light'
-                      ? (isMarriedOpen ? upCollapseArrowDay : downCollapseArrowDay)
-                      : (isMarriedOpen ? upCollapseArrowNight : downCollapseArrowNight)
-                  }
-                  alt=""
-                  className="arrow-icon"
-                  onClick={toggleMarriedDropdown}
-                />
-              )}
-              {editMode && isMarriedOpen && (
-                <ul className="married-dropdown-menu">
-                  {['Da', 'Nu'].map(option => (
-                    <li
-                      key={option}
-                      className={`married-dropdown-item ${option.toLowerCase()}`}
-                      onClick={() => {
-                        setSelectedMarried(option);
-                        setIsMarriedOpen(false);
-                      }}
-                    >
-                      {option}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+      <FormField
+        className="search-icon-address"
+        label="Adresă"
+        value={address}
+        setValue={setAddress}
+        required={true}
+      />
 
+      {editMode && (
+        <img
+          src={trashCan}
+          alt="Delete"
+          className="delete-icon"
+          onClick={() => setShowDeleteModal(true)}
+          style={{ cursor: 'pointer' }}
+        />
+      )}
+    </div>
+  );
 
-            {/* county */}
-            <div className="search-icon-county">
-              <p className="search-icon-text">Județ *</p>
-              {editMode ? (
-                <input
-                  type="text"
-                  value={county}
-                  onChange={(e) => setCounty(e.target.value)}
-                  className="search-icon-info editable"
-                />
-              ) : (
-                <p className="search-icon-info">{county}</p>
-              )}
-            </div>
-
-            {/* address of residence */}
-            <div className="search-icon-address">
-              <p className="search-icon-text">Adresă *</p>
-              {editMode ? (
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="search-icon-info editable"
-                />
-              ) : (
-                <p className="search-icon-info">{address}</p>
-              )}
-            </div>
-
-            {/* delete option */}
-            <img
-              src={trashCan}
-              alt="Delete"
-              className="delete-icon"
-              onClick={() => {
-                if (editMode) setShowDeleteModal(true);
-              }}
-              style={{
-                cursor: editMode ? 'pointer' : 'default',
-                opacity: editMode ? 1 : 0.5,
-              }}
-            />
-          </div>
-
-          
-          <div className="logout-button" onClick={() => setShowLogoutModal(true)}>
-            <img src={logoutDay} alt="Logout" className="logout-icon" />
-            <p className="logout-title">Ieșire din cont</p>
-          </div>
-
-          <div className="settings-button">
-            <img
-                src={settingsDay}
-                alt=""
-                className="settings-icon"
-            />
-
-            <p className="settings-title">Setări</p>
-          </div>
-
-          <a
-            href="https://www.bcr.ro/en/about-us/our-company"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ textDecoration: 'none' }}
-          >
-            <div className="about-button">
-              <img
-                src={bankDay}
-                alt=""
-                className="about-icon"
-              />
-              <p className="about-title">Despre BCR</p>
-            </div>
-          </a>
-          
-          <a
-            href="https://www.bcr.ro/en/individuals/help-center"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ textDecoration: 'none' }}
-          >
-            <div className="help-button">
-              <img
-                  src={helpDay}
-                  alt=""
-                  className="help-icon"
-              />
-
-              <p className="help-title">Ajutor</p>
-            </div>
-          </a>
-
-          <a
-            href="https://www.bcr.ro/en/terms-conditions"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ textDecoration: 'none' }}
-          >
-          <div className="user-agreement-button">
-            <img
-                src={userAgreementDay}
-                alt=""
-                className="user-agreement-icon"
-            />
-
-            <p className="user-agreement-title">Condiții</p>
-          </div>
-          </a>
-
-          {showLogoutModal && (
-            <LogoutModal onClose={() => setShowLogoutModal(false)} onConfirm={handleLogout} />
-          )}
-
-          {showEditModal && (
-            <EditModal onClose={() => setShowEditModal(false)} onConfirm={handleEditConfirm} />
-          )}
-
-          {showDeleteModal && (
-            <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={handleDelete} />
-          )}
+  const ActionButtons = () => (
+    <>
+      <div className="logout-button" onClick={() => setShowLogoutModal(true)}>
+        <img src={logoutDay} alt="Logout" className="logout-icon" />
+        <p className="logout-title">Ieșire din cont</p>
       </div>
 
-    );
-  };
+      <div className="settings-button" onClick={() => setShowSettingsModal(true)}>
+        <img src={settingsDay} alt="" className="settings-icon" />
+        <p className="settings-title">Setări</p>
+      </div>
+
+      <a
+        href="https://www.bcr.ro/en/about-us/our-company"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ textDecoration: 'none' }}
+      >
+        <div className="about-button">
+          <img src={bankDay} alt="" className="about-icon" />
+          <p className="about-title">Despre BCR</p>
+        </div>
+      </a>
+      
+      <a
+        href="https://www.bcr.ro/en/individuals/help-center"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ textDecoration: 'none' }}
+      >
+        <div className="help-button">
+          <img src={helpDay} alt="" className="help-icon" />
+          <p className="help-title">Ajutor</p>
+        </div>
+      </a>
+
+      <a
+        href="https://www.bcr.ro/en/terms-conditions"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ textDecoration: 'none' }}
+      >
+        <div className="user-agreement-button">
+          <img src={userAgreementDay} alt="" className="user-agreement-icon" />
+          <p className="user-agreement-title">Condiții</p>
+        </div>
+      </a>
+    </>
+  );
+
+  const Modals = () => (
+    <>
+      {showSettingsModal && (
+        <SettingsModal onClose={() => setShowSettingsModal(false)} userData={userData} setLoggedIn={setLoggedIn}/>
+      )}
+
+      {showLogoutModal && (
+        <LogoutModal onClose={() => setShowLogoutModal(false)} onConfirm={handleLogout} />
+      )}
+
+      {showEditModal && (
+        <EditModal onClose={() => setShowEditModal(false)} onConfirm={handleEditConfirm} />
+      )}
+
+      {showDeleteModal && (
+        <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={handleDeleteAccount} />
+      )}
+    </>
+  );
+
+  // MAIN RENDER
+
+  return (
+    <div className="profile-container">
+      {editMode && <div className="edit-overlay"></div>}
+      
+      <ProfileCard />
+      <PersonalInformation />
+      <ActionButtons />
+      <Modals />
+    </div>
+  );
+};
 
 export default Profile;
