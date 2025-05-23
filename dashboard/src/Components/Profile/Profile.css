@@ -77,7 +77,6 @@
 }
 
 .profile-card-username {
-  font-family: 'Open Sans', sans-serif;
   font-size: 2vw;
   color: #333;
   text-align: center;
@@ -87,7 +86,6 @@
 
 /* ID styling with gap after */
 .profile-card-ID {
-  font-family: 'Open Sans', sans-serif;
   font-size: 0.7vw;
   color: #6d6b6b;
   text-align: center;
@@ -96,7 +94,6 @@
 
 /* Job styling */
 .profile-card-job {
-  font-family: 'Open Sans', sans-serif;
   font-size: 0.8vw;
   font-style: italic;
   color: #000000;
@@ -104,7 +101,6 @@
 }
 
 .profile-card-location {
-  font-family: 'Open Sans', sans-serif;
   font-size: 0.75vw;
   font-style: italic;
   color: #000000;
@@ -113,7 +109,6 @@
 }
 
 .profile-card-join-date {
-  font-family: 'Open Sans', sans-serif;
   font-size: 0.75vw;
   color: #a3a3a3;
   text-align: center;
@@ -155,7 +150,7 @@
 
 .general-information-title {
   position: relative;
-  font-family: 'Bitter', serif;
+
   font-weight: 700;
   letter-spacing: 0.3px;
   font-size: 4vw;
@@ -185,7 +180,6 @@
 }
 
 .search-icon-text {
-  font-family: 'Open Sans', sans-serif;
   font-size: 0.6vw;
   color: #3b393991;
   margin-top: -0.3vw;
@@ -196,7 +190,6 @@
   position: absolute;
   top: 0.95vw;     /* Adjust as needed */
   right: 14.9vw;     /* Adjust as needed */
-  font-family: 'Open Sans', sans-serif;
   font-size: 1.3vw;
   color: #000000;
   width: 8vw;
@@ -388,7 +381,6 @@
 }
 
 .dropdown-menu li {
-  font-family: 'Open Sans', sans-serif;
   font-size: 1.3vw; /* Match .search-icon-info */
   color: #000000;
   width: 8vw; /* Match width */
@@ -405,22 +397,18 @@
 .dropdown-item.bărbat {
   position: relative;
   left: -6vw;
-  font-family: 'Open Sans', sans-serif;
 }
 
 .dropdown-item.femeie {
   position: relative;
   left: -15.32vw;
   top: 1vw;
-  font-family: 'Open Sans', sans-serif;
-
-
 }
+
 .dropdown-item.nespecificat {
   position: relative;
   left: -7.55vw;
   top: 0.5vw;
-  font-family: 'Open Sans', sans-serif;
 }
 
 .married-dropdown-menu {
@@ -439,7 +427,6 @@
 }
 
 .married-dropdown-menu li {
-  font-family: 'Open Sans', sans-serif;
   font-size: 1.3vw; /* Match .search-icon-info */
   color: #000000;
   width: 8vw; /* Match width */
@@ -457,14 +444,12 @@
 .married-dropdown-item.da {
   position: relative;
   left: -8.52vw;
-  font-family: 'Open Sans', sans-serif;
 }
 
 .married-dropdown-item.nu {
   position: relative;
   left: -18vw;
   top: 1vw;
-  font-family: 'Open Sans', sans-serif;
 }
 .logout-button {
   position: absolute;
@@ -501,7 +486,6 @@
 .logout-title {
   position: static; /* Remove absolute positioning */
   text-align: center;
-  font-family: 'Open Sans', sans-serif;
   font-size: 2vw;
   font-weight: 1000;
   color: #000000;
@@ -549,7 +533,6 @@
 .settings-title {
   position: static; /* Remove absolute positioning */
   text-align: center;
-  font-family: 'Open Sans', sans-serif;
   font-size: 2vw;
   font-weight: 1000;
   color: #000000;
@@ -595,7 +578,6 @@
 .about-title {
   position: static; /* Remove absolute positioning */
   text-align: center;
-  font-family: 'Open Sans', sans-serif;
   font-size: 2vw;
   font-weight: 1000;
   color: #000000;
@@ -641,7 +623,6 @@
 .help-title {
   position: static; /* Remove absolute positioning */
   text-align: center;
-  font-family: 'Open Sans', sans-serif;
   font-size: 2vw;
   font-weight: 1000;
   color: #000000;
@@ -687,7 +668,6 @@
 .user-agreement-title {
   position: static; /* Remove absolute positioning */
   text-align: center;
-  font-family: 'Open Sans', sans-serif;
   font-size: 2vw;
   font-weight: 1000;
   color: #000000;
@@ -730,7 +710,6 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   z-index: 20;
 
-  font-family: 'Open Sans', sans-serif;
   transition: background-color 0.3s ease;
 }
 
@@ -741,7 +720,6 @@
 .search-icon-info.editable {
   all: unset; /* removes default input styles */
   font-size: 1.3vw;
-  font-family: 'Open Sans', sans-serif;
   color: #000;
   width: 300%;
   height: 100%;
@@ -759,7 +737,6 @@
   position: absolute;
   top: 0.6vw;
   right: 10.45vw;
-  font-family: 'Open Sans', sans-serif;
   font-size: 1.3vw;
   color: #000000;
   width: 8vw;
@@ -769,4 +746,109 @@
 .disabled-arrow {
   opacity: 0;
   pointer-events: none;
+}
+
+/* === DARK MODE OVERRIDES === */
+.profile-container.dark {
+  background-color: #121212;
+  transition: all 0.3s ease;
+}
+
+/* Profile card dark styling */
+.profile-container.dark .profile-card {
+  background-color: #1a1a1a;
+  border-color: #333;
+  transition: all 0.3s ease;
+}
+
+.profile-container.dark .profile-card-username,
+.profile-container.dark .profile-card-job,
+.profile-container.dark .profile-card-location,
+.profile-container.dark .profile-card-join-date {
+  color: #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.profile-container.dark .profile-card-ID {
+  color: #aaa;
+  transition: all 0.3s ease;
+}
+
+/* General information panel */
+.profile-container.dark .general-information {
+  background-color: #1a1a1a;
+  border-color: #333;
+  transition: all 0.3s ease;
+}
+
+.profile-container.dark .general-information-title {
+  color: #ffffff;
+  transition: all 0.3s ease;
+}
+
+/* Field label */
+.profile-container.dark .search-icon-text {
+  color: #bbb;
+  transition: all 0.3s ease;
+}
+
+/* Input and field display */
+.profile-container.dark .search-icon-info,
+.profile-container.dark .search-icon-info.editable {
+  color: #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.profile-container.dark .search-icon-first-name,
+.profile-container.dark .search-icon-last-name,
+.profile-container.dark .search-icon-phone-number,
+.profile-container.dark .search-icon-email,
+.profile-container.dark .search-icon-address,
+.profile-container.dark .search-icon-county,
+.profile-container.dark .search-icon-gender,
+.profile-container.dark .search-icon-married {
+  background-color: #2a2a2a;
+  border-color: #555;
+  transition: all 0.3s ease;
+}
+
+/* Save button */
+.profile-container.dark .save-button {
+  background-color: #2e7d32;
+  color: #ffffff;
+  transition: all 0.3s ease;
+}
+
+.profile-container.dark .save-button:hover {
+  background-color: #1b5e20;
+  transition: all 0.3s ease;
+}
+
+/* Action buttons (logout, settings, etc.) */
+.profile-container.dark .logout-button,
+.profile-container.dark .settings-button,
+.profile-container.dark .about-button,
+.profile-container.dark .help-button,
+.profile-container.dark .user-agreement-button {
+  background-color: #1a1a1a;
+  border-color: #333;
+  transition: all 0.3s ease;
+}
+
+.profile-container.dark .logout-title,
+.profile-container.dark .settings-title,
+.profile-container.dark .about-title,
+.profile-container.dark .help-title,
+.profile-container.dark .user-agreement-title {
+  color: #ffffff;
+  transition: all 0.3s ease;
+}
+
+/* Icons (optional tint adjustments if needed) */
+.profile-container.dark .logout-icon,
+.profile-container.dark .settings-icon,
+.profile-container.dark .about-icon,
+.profile-container.dark .help-icon,
+.profile-container.dark .user-agreement-icon {
+  filter: brightness(0.85);
 }

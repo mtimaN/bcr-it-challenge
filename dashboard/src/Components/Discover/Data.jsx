@@ -102,7 +102,7 @@ const adsByCluster = {
       title_eng: "Simple savings",
 
       description_ro: "Economisește automat când cheltui.",
-      description_eng: "Turn spending into saving automatically",
+      description_eng: "Turn spending into saving automatically.",
 
       image: "images/ads/economyAuto.jpg"
     },

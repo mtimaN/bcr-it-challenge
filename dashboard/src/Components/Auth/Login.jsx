@@ -17,25 +17,17 @@ const Login = ({ lang, setLang, setLoggedIn, setUserData }) => {
   const [password, setPassword] = useState('');
 
   useEffect(() => {
+    // Force theme to light
+    setTheme('light');
+    localStorage.setItem('current_theme', 'light');
+  
+    // Force language to RO
+    setLang('RO');
+  
+    // Remove dark class from container if it exists
     const container = document.querySelector('.container');
-    if (theme === 'dark') {
-      container?.classList.add('dark');
-    } else {
-      container?.classList.remove('dark');
-    }
-    localStorage.setItem('current_theme', theme);
-  }, [theme]);
-
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-  };
-
-
-  const toggleLang = () => {
-    setLang(lang === 'RO' ? 'EN' : 'RO');
-  };
+    container?.classList.remove('dark');
+  }, []);
 
   const handleLogin = async () => {
     try {
@@ -92,24 +84,10 @@ const Login = ({ lang, setLang, setLoggedIn, setUserData }) => {
   return (
     <div className="auth-container">
       {/* Lang toggle */}
-      <div className="lang-toggle">
-        <img
-          src={getLangIcon()}
-          alt="Lang"
-          onClick={toggleLang}
-        />
-      </div>
-
-      {/* Theme toggle */}
-      <div className="theme-toggle">
-        <img
-          src={theme === 'light' ? moon : sun}
-          alt="Theme"
-          onClick={toggleTheme}
-        />
-      </div>
 
       <p className="login-title">GEORG.IO</p>
+
+      <p className="login-description">Next-gen Personalized Banking Experience</p>
 
       {/* Auth box */}
       <div className="auth-box">

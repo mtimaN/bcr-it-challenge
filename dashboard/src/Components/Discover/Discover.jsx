@@ -34,15 +34,11 @@ const Discover = ({ theme, lang, setTheme }) => {
     fetchCategory();
   }, []);
 
-  const toggle_mode = () => {
-    theme === 'light' ? setTheme('dark') : setTheme('light');
-  };
-
   return (
     <div>
-      <h2 className="discover-title">Descoperă</h2>
+      <h2 className="discover-title">{lang === 'RO' ? 'Doar pentru tine:' : 'Only for you:'}</h2>
       <AdsManager userCluster={userCluster} lang={lang} />
-      <h3 className="discover-subtitle"> Servicii</h3><ServiceTiles userCluster={userCluster} lang={lang} />
+      <h3 className="discover-subtitle"> {lang === 'RO' ? 'Servicii' : 'Services'}</h3><ServiceTiles userCluster={userCluster} lang={lang} />
     </div>
   )
 }

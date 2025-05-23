@@ -105,22 +105,10 @@ const Register = ({ lang, setLang, setUserData }) => {
   return (
     <div className="auth-container">
       {/* Lang toggle */}
-      <div className="lang-toggle">
-        <img
-          src={getLangIcon()}
-          alt="Lang"
-          onClick={toggleLang}
-        />
-      </div>
 
-      {/* Theme toggle */}
-      <div className="theme-toggle">
-        <img
-          src={theme === 'light' ? moon : sun}
-          alt="Theme"
-          onClick={toggleTheme}
-        />
-      </div>
+      <p className="login-title">GEORG.IO</p>
+
+      <p className="login-description">Next-gen Personalized Banking Experience</p>
 
       {/* Register box */}
       <div className="auth-box">

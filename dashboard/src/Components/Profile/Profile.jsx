@@ -4,19 +4,19 @@ import newProfileIconNight from '../../assets/profile_page/newProfileIconNight.p
 import editPencilDay from '../../assets/profile_page/editPencilDay.png'
 import editPencilNight from '../../assets/profile_page/editPencilNight.png'
 import trashCan from '../../assets/profile_page/trashCan.png'
-import downCollapseArrowDay from '../../assets/profile_page/downCollapseArrowDay.png'
-import downCollapseArrowNight from '../../assets/profile_page/downCollapseArrowNight.png'
-import upCollapseArrowDay from '../../assets/profile_page/upCollapseArrowDay.png'
-import upCollapseArrowNight from '../../assets/profile_page/upCollapseArrowNight.png'
 import gradientLightBlue from '../../assets/profile_page/gradientLightBlue.jpg'
+import black from '../../assets/profile_page/black.png'
 import frame from '../../assets/profile_page/frame.png'
 import settingsDay from '../../assets/profile_page/settingsDay.png'
+import settingsNight from '../../assets/profile_page/settingsNight.png'
 import logoutDay from '../../assets/profile_page/logoutDay.png'
+import logoutNight from '../../assets/profile_page/logoutNight.png'
 import bankDay from '../../assets/profile_page/bankDay.png'
+import bankNight from '../../assets/profile_page/bankNight.png'
 import helpDay from '../../assets/profile_page/helpDay.png'
+import helpNight from '../../assets/profile_page/helpNight.png'
 import userAgreementDay from '../../assets/profile_page/userAgreementDay.png'
-import profileIconDay from '../../assets/profile_page/profileIconDay.png'
-import profileIconNight from '../../assets/profile_page/profileIconNight.png'
+import userAgreementNight from '../../assets/profile_page/userAgreementNight.png'
 
 // Component Imports
 import LogoutModal from './LogoutModal/LogoutModal';
@@ -25,14 +25,12 @@ import EditModal from './EditModal/EditModal';
 import DeleteModal from './DeleteModal/DeleteModal';
 import SettingsModal from './SettingsModal/SettingsModal';
 
-import { useLocation } from 'react-router-dom';
-
 // Library Imports
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Profile.css';
 
-const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
+const Profile = ({ theme, setTheme, setLoggedIn, userData, lang }) => {
   const navigate = useNavigate();
 
   // STATE MANAGEMENT
@@ -110,10 +108,6 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
     }
   };
 
-  const toggleTheme = () => {
-    theme === 'light' ? setTheme('dark') : setTheme('light');
-  };
-
   // EFFECTS
 
   useEffect(() => {  
@@ -155,7 +149,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
   );
 
   const ProfileCard = () => (
-    <div className="profile-card">
+    <div className={`profile-card ${theme === 'dark' ? 'dark' : ''}`}>
       <div className="icon-wrapper">
         <img
           src={theme === 'light' ? newProfileIconDay : newProfileIconNight}
@@ -164,7 +158,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
         />
       </div>
       <img
-        src={gradientLightBlue}
+        src={theme === 'dark' ? black : gradientLightBlue}
         alt=""
         className="gradient-blue"
       />
@@ -175,7 +169,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
         alt=""
         className="qr-code"
       />
-      <p className="profile-card-join-date">S-a alăturat în mai 2025</p>
+      <p className="profile-card-join-date">{lang === 'RO' ? 'S-a alăturat în mai 2025' : 'Joined May 2025'}</p>
     </div>
   );
 
@@ -186,14 +180,14 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
           className="save-button"
           onClick={() => setEditMode(false)}
         >
-          Salvare
+          {lang === 'RO' ? 'Salvare' : 'Save changes'}
         </button>
       )}
 
-      <p className="general-information-title">INFORMAȚII PERSONALE</p>
+      <p className="general-information-title">{lang === 'RO' ? 'INFORMAȚII PERSONALE' : 'PERSONAL INFORMATION'}</p>
 
       <img
-        src={gradientLightBlue}
+        src={theme === 'dark' ? black : gradientLightBlue}
         alt=""
         className="gradient-blue-info"
       />
@@ -210,7 +204,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
 
       <FormField
         className="search-icon-first-name"
-        label="Prenume"
+        label={lang === 'RO' ? 'Prenume' : 'First name'}
         value={firstNameState}
         setValue={setFirstName}
         required={true}
@@ -218,7 +212,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
 
       <FormField
         className="search-icon-last-name"
-        label="Nume"
+        label={lang === 'RO' ? 'Nume' : 'Last name'}
         value={lastNameState}
         setValue={setLastName}
         required={true}
@@ -226,7 +220,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
 
       <FormField
         className="search-icon-phone-number"
-        label="Număr de telefon"
+        label={lang === 'RO' ? 'Număr de telefon' : 'Phone number'}
         value={phoneNumber}
         setValue={setPhoneNumber}
         required={true}
@@ -234,7 +228,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
 
       <FormField
         className="search-icon-email"
-        label="Adresă de email"
+        label={lang === 'RO' ? 'Adresă de email' : 'Email address'}
         value={emailState}
         setValue={setEmail}
         required={true}
@@ -242,21 +236,21 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
 
       <FormField
         className="search-icon-gender"
-        label="Gen"
+        label={lang === 'RO' ? 'Gen' : 'Gender'}
         value={gender}
         setValue={setGender}
       />
 
       <FormField
         className="search-icon-married"
-        label="Căsătorit/ă"
+        label={lang === 'RO' ? 'Căsătorit/ă' : 'Married'}
         value={marriedStatus}
         setValue={setMarriedStatus}
       />
 
       <FormField
         className="search-icon-county"
-        label="Județ"
+        label={lang === 'RO' ? 'Județ' : 'County'}
         value={county}
         setValue={setCounty}
         required={true}
@@ -264,7 +258,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
 
       <FormField
         className="search-icon-address"
-        label="Adresă"
+        label={lang === 'RO' ? 'Adresă' : 'Address'}
         value={address}
         setValue={setAddress}
         required={true}
@@ -285,13 +279,13 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
   const ActionButtons = () => (
     <>
       <div className="logout-button" onClick={() => setShowLogoutModal(true)}>
-        <img src={logoutDay} alt="Logout" className="logout-icon" />
-        <p className="logout-title">Ieșire din cont</p>
+        <img src={theme === 'dark' ? logoutNight : logoutDay} alt="Logout" className="logout-icon" />
+        <p className="logout-title">{lang === 'RO' ? 'Ieșire din cont' : 'Logout'}</p>
       </div>
 
       <div className="settings-button" onClick={() => setShowSettingsModal(true)}>
-        <img src={settingsDay} alt="" className="settings-icon" />
-        <p className="settings-title">Setări</p>
+        <img src={theme === 'dark' ? settingsNight : settingsDay} alt="" className="settings-icon" />
+        <p className="settings-title">{lang === 'RO' ? 'Setări' : 'Settings'}</p>
       </div>
 
       <a
@@ -301,8 +295,8 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
         style={{ textDecoration: 'none' }}
       >
         <div className="about-button">
-          <img src={bankDay} alt="" className="about-icon" />
-          <p className="about-title">Despre BCR</p>
+          <img src={theme === 'dark' ? bankNight : bankDay} alt="" className="about-icon" />
+          <p className="about-title">{lang === 'RO' ? 'Despre BCR' : 'About BCR'}</p>
         </div>
       </a>
       
@@ -313,8 +307,8 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
         style={{ textDecoration: 'none' }}
       >
         <div className="help-button">
-          <img src={helpDay} alt="" className="help-icon" />
-          <p className="help-title">Ajutor</p>
+          <img src={theme === 'dark' ? helpNight : helpDay} alt="" className="help-icon" />
+          <p className="help-title">{lang === 'RO' ? 'Ajutor' : 'Help'}</p>
         </div>
       </a>
 
@@ -325,8 +319,8 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
         style={{ textDecoration: 'none' }}
       >
         <div className="user-agreement-button">
-          <img src={userAgreementDay} alt="" className="user-agreement-icon" />
-          <p className="user-agreement-title">Condiții</p>
+          <img src={theme === 'dark' ? userAgreementNight : userAgreementDay} alt="" className="user-agreement-icon" />
+          <p className="user-agreement-title">{lang === 'RO' ? 'Condiții' : 'Agreement'}</p>
         </div>
       </a>
     </>
@@ -335,19 +329,19 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
   const Modals = () => (
     <>
       {showSettingsModal && (
-        <SettingsModal onClose={() => setShowSettingsModal(false)} userData={userData} setLoggedIn={setLoggedIn}/>
+        <SettingsModal onClose={() => setShowSettingsModal(false)} userData={userData} setLoggedIn={setLoggedIn} lang={lang} theme={theme} />
       )}
 
       {showLogoutModal && (
-        <LogoutModal onClose={() => setShowLogoutModal(false)} onConfirm={handleLogout} />
+        <LogoutModal onClose={() => setShowLogoutModal(false)} onConfirm={handleLogout} lang={lang} theme={theme} />
       )}
 
       {showEditModal && (
-        <EditModal onClose={() => setShowEditModal(false)} onConfirm={handleEditConfirm} />
+        <EditModal onClose={() => setShowEditModal(false)} onConfirm={handleEditConfirm} lang={lang} theme={theme} />
       )}
 
       {showDeleteModal && (
-        <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={handleDeleteAccount} />
+        <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={handleDeleteAccount} lang={lang} theme={theme} />
       )}
     </>
   );
@@ -355,7 +349,7 @@ const Profile = ({ theme, setTheme, setLoggedIn, userData }) => {
   // MAIN RENDER
 
   return (
-    <div className="profile-container">
+    <div className={`profile-container ${theme === 'dark' ? 'dark' : ''}`}>
       {editMode && <div className="edit-overlay"></div>}
       
       <ProfileCard />

@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import './EditModal.css';
 
-const EditModal = ({ onClose, onConfirm }) => {
+const EditModal = ({ onClose, onConfirm, lang, theme }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = () => {
     if (password.trim() === '') {
-      setError('Vă rugăm introduceți o parolă.');
+      {lang === 'RO' ? setError('Vă rugăm introduceți o parolă.') : setError('Please enter a valid password.')};
     } else {
       const success = onConfirm(password); // get success/failure
       if (success === false) {
-        setError('Parolă greșită. Vă rugăm încercați din nou.');
+        {lang === 'RO' ? setError('Parolă greșită. Vă rugăm încercați din nou.') : setError('Wrong password. Please try again.')};
         setPassword('');
       }
     }
@@ -26,8 +26,8 @@ const EditModal = ({ onClose, onConfirm }) => {
   return (
     <div className="edit-modal-overlay" onClick={onClose}>
       <div className="edit-modal-container" onClick={(e) => e.stopPropagation()}>
-        <h2 className="edit-modal-title">Confirmare identitate</h2>
-        <p className="edit-modal-body">Introduceți parola pentru a continua:</p>
+        <h2 className="edit-modal-title"> {lang === 'RO' ? 'Confirmare identitate' : 'Confirm identity'}</h2>
+        <p className="edit-modal-body">{lang === 'RO' ? 'Introduceți parola pentru a continua:' : 'To continue, please enter your password:'}</p>
 
         <input
           type="password"
@@ -40,8 +40,8 @@ const EditModal = ({ onClose, onConfirm }) => {
         {error && <p className="edit-modal-error">{error}</p>}
 
         <div className="edit-modal-buttons">
-          <button className="confirm" onClick={handleSubmit}>Confirmare</button>
-          <button className="cancel" onClick={onClose}>Anulare</button>
+          <button className="confirm" onClick={handleSubmit}>{lang === 'RO' ? 'Confirmare' : 'Confirm'}</button>
+          <button className="cancel" onClick={onClose}>{lang === 'RO' ? 'Anulare' : 'Cancel'}</button>
         </div>
       </div>
     </div>

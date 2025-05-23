@@ -64,3 +64,33 @@
   font-size: 1vw;                       /* Adjust size */
   margin-bottom: 2vw;
 }
+
+.logout-modal-overlay.dark {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.logout-modal-container.dark {
+  background: #1e1e1e;
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.05);
+}
+
+.logout-modal-title.dark {
+  color: #ffffff;
+}
+
+.logout-modal-body.dark {
+  color: #cccccc;
+}
+
+.logout-modal-buttons .logout-modal-confirm {
+  background-color: #e53935;
+}
+
+.logout-modal-buttons .logout-modal-cancel {
+  background-color: #666;
+  color: #fff;
+}
+
+.logout-modal-buttons button {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}

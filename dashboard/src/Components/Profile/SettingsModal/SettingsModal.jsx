@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './SettingsModal.css';
 import { useNavigate } from 'react-router-dom';
 
-const SettingsModal = ({ onClose, userData, setLoggedIn }) => {
+const SettingsModal = ({ onClose, userData, setLoggedIn, lang, theme }) => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [oldPasswordInput, setOldPasswordInput] = useState('');
@@ -16,13 +16,13 @@ const SettingsModal = ({ onClose, userData, setLoggedIn }) => {
     if (oldPasswordInput === password) {
       setStep(2);
     } else {
-      alert('Parola veche introdusă este incorectă.');
+      {lang === 'RO' ? alert('Parola veche introdusă este incorectă.') : alert('Old password is incorrect.')};   
     }
   };
 
   const handlePasswordChange = async () => {
     if (!newPassword.trim()) {
-      alert('Introduceți noua parolă');
+      {lang === 'RO' ? alert('Introduceți noua parolă') : alert('Please enter your new password')};
       return;
     }
 
@@ -55,11 +55,11 @@ const SettingsModal = ({ onClose, userData, setLoggedIn }) => {
       } else {
         const errorData = await response.json();
         console.error('Failed to update password:', errorData.error || 'Unknown error');
-        alert('Eroare la schimbarea parolei. Încercați din nou.');
+        {lang === 'RO' ? alert('Eroare la schimbarea parolei. Încercați din nou.') : alert('Error while changing the password. Please try again.')};
       }
     } catch (error) {
       console.error('Error updating password:', error.message);
-      alert('A apărut o eroare. Încercați din nou.');
+      {lang === 'RO' ? alert('A apărut o eroare. Încercați din nou.') : alert('An error has occured. Please try again.')};
     } finally {
       setIsLoading(false);
     }
@@ -69,12 +69,12 @@ const SettingsModal = ({ onClose, userData, setLoggedIn }) => {
     <div className="settings-modal-overlay" onClick={onClose}>
       <div className="settings-modal-container" onClick={(e) => e.stopPropagation()}>
         <h2 className="settings-modal-title">
-          {step === 1 ? 'Confirmare parolă actuală' : 'Schimbare parolă'}
+          {step === 1 ? (lang === 'RO' ? 'Confirmare parolă actuală' : 'Confirm current password') : (lang === 'RO' ? 'Schimbare parolă' : 'Change password')}
         </h2>
         <p className="settings-modal-body">
           {step === 1
-            ? 'Introduceți parola actuală pentru a continua.'
-            : 'Introduceți noua parolă.'}
+            ? (lang === 'RO' ? 'Introduceți parola actuală pentru a continua.' : 'Insert current password to continue')
+            : (lang === 'RO' ? 'Introduceți noua parolă.' : 'Insert new password.')}
         </p>
 
         {step === 1 ? (
@@ -82,7 +82,7 @@ const SettingsModal = ({ onClose, userData, setLoggedIn }) => {
             type="password"
             value={oldPasswordInput}
             onChange={(e) => setOldPasswordInput(e.target.value)}
-            placeholder="Parola veche"
+            placeholder={lang === 'RO' ? 'Parola veche' : 'Old password'}
             className="settings-password-input"
             disabled={isLoading}
           />
@@ -91,7 +91,7 @@ const SettingsModal = ({ onClose, userData, setLoggedIn }) => {
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Noua parolă"
+            placeholder={lang === 'RO' ? 'Noua parolă' : 'New password'}
             className="settings-password-input"
             disabled={isLoading}
           />
@@ -104,7 +104,7 @@ const SettingsModal = ({ onClose, userData, setLoggedIn }) => {
             disabled={isLoading}
           >
             {isLoading
-              ? 'Se salvează...'
+              ? (lang === 'RO' ? 'Se salvează...' : 'Saving...')
               : step === 1
               ? 'Continuă'
               : 'Salvează'}
